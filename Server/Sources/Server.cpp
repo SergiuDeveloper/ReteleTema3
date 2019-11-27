@@ -56,6 +56,12 @@ SuccessState Server::Stop()
     close(serverSocket);
     Server::serverRunning = false;
 
+    while (!pthread_mutex_trylock(&Server::clientSocketsMutex));
+    for (auto & clientSocket : Server::clientSockets)
+        close(clientSocket.clientSocketDescriptor);
+    Server::clientSockets.clear();
+    pthread_mutex_unlock(&Server::clientSocketsMutex);
+
     pthread_mutex_destroy(&Server::clientSocketsMutex);
 
     return SuccessState(true, SUCCESS_SERVER_STOPPED);
@@ -70,11 +76,12 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
     while (Server::serverRunning)
     {
         clientSocketAddrLen = sizeof(clientSocket.clientSocketAddr);
+        operationSuccess = false;
 
         while (Server::serverRunning && !operationSuccess)
         {
             clientSocket.clientSocketDescriptor = accept(Server::serverSocket, (struct sockaddr *)&clientSocket.clientSocketAddr, &clientSocketAddrLen);
-            operationSuccess = (clientSocket.clientSocketDescriptor != -1);
+            operationSuccess = (clientSocket.clientSocketDescriptor > 0);
         }
 
         if (Server::serverRunning && operationSuccess)
