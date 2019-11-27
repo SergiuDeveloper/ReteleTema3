@@ -3,13 +3,18 @@
 unsigned int Server::serverPort;
 bool Server::serverRunning = false;
 int Server::serverSocket;
+vector<ClientSocket> Server::clientSockets;
+pthread_mutex_t Server::clientSocketsMutex;
+pthread_t Server::clientsAcceptanceThread;
+function<void(void)> Server::ClientConnected_EventCallback;
 
-SuccessState Server::Start(unsigned int serverPort)
+SuccessState Server::Start(unsigned int serverPort, function<void(void)> ClientConnected_EventCallback)
 {
     if (Server::serverRunning)
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
 
     Server::serverPort = serverPort;
+    Server::ClientConnected_EventCallback = ClientConnected_EventCallback;
 
     bool operationSuccess;
 
@@ -32,6 +37,14 @@ SuccessState Server::Start(unsigned int serverPort)
         return SuccessState(false, ERROR_SERVER_SOCKET_LISTENING);
 
     Server::serverRunning = true;
+    Server::clientSockets.clear();
+    int serverSocketFlags = fcntl(Server::serverSocket, F_GETFL, 0) | O_NONBLOCK;
+    fcntl(Server::serverSocket, F_SETFL, serverSocketFlags);
+    
+    pthread_mutex_init(&Server::clientSocketsMutex, nullptr);
+    pthread_create(&Server::clientsAcceptanceThread, NULL, Server::ClientsAcceptanceThreadFunction, NULL);
+    pthread_detach(Server::clientsAcceptanceThread);
+
     return SuccessState(true, SUCCESS_SERVER_STARTED(Server::serverPort));
 }
 
@@ -41,8 +54,40 @@ SuccessState Server::Stop()
         return SuccessState(false, ERROR_SERVER_NOT_RUNNING);
 
     close(serverSocket);
+    Server::serverRunning = false;
+
+    pthread_mutex_destroy(&Server::clientSocketsMutex);
 
     return SuccessState(true, SUCCESS_SERVER_STOPPED);
+}
+
+void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
+{
+    ClientSocket clientSocket;
+    socklen_t clientSocketAddrLen;
+    
+    bool operationSuccess;
+    while (Server::serverRunning)
+    {
+        clientSocketAddrLen = sizeof(clientSocket.clientSocketAddr);
+
+        while (Server::serverRunning && !operationSuccess)
+        {
+            clientSocket.clientSocketDescriptor = accept(Server::serverSocket, (struct sockaddr *)&clientSocket.clientSocketAddr, &clientSocketAddrLen);
+            operationSuccess = (clientSocket.clientSocketDescriptor != -1);
+        }
+
+        if (Server::serverRunning && operationSuccess)
+        {
+            while (!pthread_mutex_trylock(&Server::clientSocketsMutex));
+            Server::clientSockets.push_back(clientSocket);
+            pthread_mutex_unlock(&Server::clientSocketsMutex);
+
+            Server::ClientConnected_EventCallback();
+        }
+    }
+
+    return nullptr;
 }
 
 unsigned int Server::serverPort_Get()

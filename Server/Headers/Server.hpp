@@ -1,6 +1,4 @@
-#ifndef SERVER_HPP
-    #define SERVER_HPP
-#endif
+#pragma once
 
 #define SUCCESS_SERVER_STARTED(serverPort)      ((string)"Server successfully started on port " + to_string(serverPort))
 #define SUCCESS_SERVER_STOPPED                  "Server successfully stopped"
@@ -13,19 +11,30 @@
 #include <sys/socket.h>
 #include <sys/unistd.h>
 #include <netinet/in.h>
+#include <fcntl.h>
+#include <pthread.h>
 #include <string>
+#include <vector>
+#include <functional>
+#include "ClientSocket.hpp"
 #include "SuccessState.hpp"
 
 using namespace std;
 
 class Server
 {
-    public:    static SuccessState Start(unsigned int serverPort);
+    public:    static SuccessState Start(unsigned int serverPort, function<void(void)> ClientConnected_EventCallback);
     public:    static SuccessState Stop();
 
     private:   static unsigned int serverPort;
-    protected: static bool serverRunning;
+    private:   static bool serverRunning;
     protected: static int serverSocket;
+    protected: static vector<ClientSocket> clientSockets;
+    protected: static pthread_mutex_t clientSocketsMutex;
+    protected: static function<void(void)> ClientConnected_EventCallback;
+
+    protected: static pthread_t clientsAcceptanceThread;
+    private:   static void * ClientsAcceptanceThreadFunction(void * threadParameters);
 
     public:    static unsigned int serverPort_Get();
     public:    static bool serverRunning_Get();

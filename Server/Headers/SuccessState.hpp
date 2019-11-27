@@ -1,6 +1,4 @@
-#ifndef SUCCESS_STATE_HPP
-    #define SUCCESS_STATE_HPP
-#endif
+#pragma once
 
 #include <string>
 
