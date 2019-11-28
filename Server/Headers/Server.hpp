@@ -10,7 +10,7 @@
 
 #include <sys/socket.h>
 #include <sys/unistd.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <string>
@@ -23,7 +23,7 @@ using namespace std;
 
 class Server
 {
-    public:    static SuccessState Start(unsigned int serverPort, function<void(void)> ClientConnected_EventCallback);
+    public:    static SuccessState Start(unsigned int serverPort, function<void(ClientSocket)> ClientConnected_EventCallback);
     public:    static SuccessState Stop();
 
     private:   static unsigned int serverPort;
@@ -31,7 +31,7 @@ class Server
     protected: static int serverSocket;
     protected: static vector<ClientSocket> clientSockets;
     protected: static pthread_mutex_t clientSocketsMutex;
-    protected: static function<void(void)> ClientConnected_EventCallback;
+    protected: static function<void(ClientSocket)> ClientConnected_EventCallback;
 
     protected: static pthread_t clientsAcceptanceThread;
     private:   static void * ClientsAcceptanceThreadFunction(void * threadParameters);

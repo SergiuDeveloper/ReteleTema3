@@ -4,6 +4,6 @@ ClientSocket::ClientSocket()
 {
 }
 
-ClientSocket::ClientSocket(int clientSocketDescriptor, struct sockaddr_in clientSocketAddr) : clientSocketDescriptor(clientSocketDescriptor), clientSocketAddr(clientSocketAddr)
+ClientSocket::ClientSocket(int clientSocketDescriptor, string clientIP) : clientSocketDescriptor(clientSocketDescriptor), clientIP(clientIP)
 {
 }

@@ -6,9 +6,9 @@ int Server::serverSocket;
 vector<ClientSocket> Server::clientSockets;
 pthread_mutex_t Server::clientSocketsMutex;
 pthread_t Server::clientsAcceptanceThread;
-function<void(void)> Server::ClientConnected_EventCallback;
+function<void(ClientSocket)> Server::ClientConnected_EventCallback;
 
-SuccessState Server::Start(unsigned int serverPort, function<void(void)> ClientConnected_EventCallback)
+SuccessState Server::Start(unsigned int serverPort, function<void(ClientSocket)> ClientConnected_EventCallback)
 {
     if (Server::serverRunning)
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
@@ -70,27 +70,30 @@ SuccessState Server::Stop()
 void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
 {
     ClientSocket clientSocket;
+    struct sockaddr_in clientSockAddr;
     socklen_t clientSocketAddrLen;
     
     bool operationSuccess;
     while (Server::serverRunning)
     {
-        clientSocketAddrLen = sizeof(clientSocket.clientSocketAddr);
+        clientSocketAddrLen = sizeof(sockaddr_in);
         operationSuccess = false;
 
         while (Server::serverRunning && !operationSuccess)
         {
-            clientSocket.clientSocketDescriptor = accept(Server::serverSocket, (struct sockaddr *)&clientSocket.clientSocketAddr, &clientSocketAddrLen);
+            clientSocket.clientSocketDescriptor = accept(Server::serverSocket, (struct sockaddr *)&clientSockAddr, &clientSocketAddrLen);
             operationSuccess = (clientSocket.clientSocketDescriptor > 0);
         }
 
         if (Server::serverRunning && operationSuccess)
         {
+            clientSocket.clientIP = inet_ntoa(clientSockAddr.sin_addr);
+
             while (!pthread_mutex_trylock(&Server::clientSocketsMutex));
             Server::clientSockets.push_back(clientSocket);
             pthread_mutex_unlock(&Server::clientSocketsMutex);
 
-            Server::ClientConnected_EventCallback();
+            Server::ClientConnected_EventCallback(clientSocket);
         }
     }
 
