@@ -1,5 +1,6 @@
 #include "../Headers/SpecializedServer.hpp"
 
+pthread_mutex_t SpecializedServer::consoleMutex;
 Connection * SpecializedServer::mySQLConnection;
 pthread_mutex_t SpecializedServer::mySQLConnectionMutex;
 
@@ -7,6 +8,7 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
 {
     string mySQLSuperuserPassword = getpass(PROMPT_MYSQL_DB_CREDENTIALS);
 
+    pthread_mutex_init(&SpecializedServer::consoleMutex, nullptr);
     pthread_mutex_init(&SpecializedServer::mySQLConnectionMutex, nullptr);
 
     try
@@ -38,6 +40,7 @@ SuccessState SpecializedServer::Stop()
     pthread_mutex_unlock(&SpecializedServer::mySQLConnectionMutex);
 
     pthread_mutex_destroy(&SpecializedServer::mySQLConnectionMutex);
+    pthread_mutex_destroy(&SpecializedServer::consoleMutex);
 
     return successState;
 }

@@ -35,6 +35,7 @@ class SpecializedServer : public Server
     
     private: static void ClientConnected_EventCallback(ClientSocket clientSocket);
 
+    private: static pthread_mutex_t consoleMutex;
     private: static Connection * mySQLConnection;
     private: static pthread_mutex_t mySQLConnectionMutex;
 };
