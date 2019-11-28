@@ -40,9 +40,9 @@ SuccessState Server::Start(unsigned int serverPort, function<void(ClientSocket)>
     Server::clientSockets.clear();
     int serverSocketFlags = fcntl(Server::serverSocket, F_GETFL, 0) | O_NONBLOCK;
     fcntl(Server::serverSocket, F_SETFL, serverSocketFlags);
-    
+
     pthread_mutex_init(&Server::clientSocketsMutex, nullptr);
-    pthread_create(&Server::clientsAcceptanceThread, NULL, Server::ClientsAcceptanceThreadFunction, NULL);
+    pthread_create(&Server::clientsAcceptanceThread, nullptr, Server::ClientsAcceptanceThreadFunction, nullptr);
     pthread_detach(Server::clientsAcceptanceThread);
 
     return SuccessState(true, SUCCESS_SERVER_STARTED(Server::serverPort));

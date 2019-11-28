@@ -1,5 +1,6 @@
+
 g++  														\
 -O3 														\
--o Bin/Server 													\
--pthread 													\
+-o Bin/Server 												 	\
 Sources/SpecializedServer.cpp Sources/Server.cpp Sources/ClientSocket.cpp Sources/SuccessState.cpp main.cpp	\
+-pthread -lncurses -lmysqlcppconn
