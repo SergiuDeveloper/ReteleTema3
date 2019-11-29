@@ -1,6 +1,7 @@
 
 g++  														\
 -O3 														\
+-Wno-unused-result												\
 -o Bin/Server 												 	\
 Sources/SpecializedServer.cpp Sources/Server.cpp Sources/ClientSocket.cpp Sources/SuccessState.cpp main.cpp	\
 -pthread -lmysqlcppconn

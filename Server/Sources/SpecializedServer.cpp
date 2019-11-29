@@ -23,7 +23,7 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
         return SuccessState(false, ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what()));
     }
 
-    cout<<SUCCESS_MYSQL_DB_CONNECTED<<'\n';
+    cout<<SUCCESS_MYSQL_DB_CONNECTED<<endl;
 
     return Server::Start(serverPort, SpecializedServer::ClientConnected_EventCallback);
 }
@@ -61,7 +61,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     }
     catch (SQLException & mySQLException)
     {
-        cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<'\n';
+        cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
 
         if (mySQLStatement != nullptr)
             delete mySQLStatement;
@@ -87,9 +87,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
                 pthread_mutex_unlock(&SpecializedServer::clientSocketsMutex);
             }
 
-        cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<'\n';
+        cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
         return;
     }
 
-    cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP)<<'\n';
+    cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP)<<endl;
 }
