@@ -65,18 +65,12 @@ int main(int argc, char ** argv)
             at_quick_exit(ProgramExit_EventCallback);
 
             SuccessState successState = SpecializedServer::Start(serverPort);
+            
             bool successStateResult = successState.isSuccess_Get();
-            string successStateMessage = successState.successStateMessage_Get();
-            char * successStateMessageCString = (char *)successStateMessage.c_str();
-            size_t successStateMessageLength = successStateMessage.size();
-
             write(serverPipe[PIPE_WRITE_INDEX], &successStateResult, sizeof(successStateResult));
-            write(serverPipe[PIPE_WRITE_INDEX], &successStateMessageLength, sizeof(successStateMessageLength));
-            write(serverPipe[PIPE_WRITE_INDEX], successStateMessageCString, successStateMessageLength);
-
             close(serverPipe[PIPE_WRITE_INDEX]);
 
-            cout<<successStateMessage<<endl;
+            cout<<successState.successStateMessage_Get()<<endl;
 
             while (SpecializedServer::serverRunning_Get());
 
@@ -87,16 +81,8 @@ int main(int argc, char ** argv)
             close(serverPipe[PIPE_WRITE_INDEX]);
 
             bool successStateResult;
-            char * successStateMessageCString;
-            size_t successStateMessageLength;
-
             read(serverPipe[PIPE_READ_INDEX], &successStateResult, sizeof(successStateResult));
-            read(serverPipe[PIPE_READ_INDEX], &successStateMessageLength, sizeof(successStateMessageLength));
-            read(serverPipe[PIPE_READ_INDEX], successStateMessageCString, successStateMessageLength);
-
             close(serverPipe[PIPE_READ_INDEX]);
-
-            cout<<successStateMessageCString<<endl;
 
             return successStateResult ? EXIT_SUCCESS : EXIT_FAILURE;;
         }
