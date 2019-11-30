@@ -43,5 +43,6 @@ class SpecializedServer : public Server
     private: pthread_mutex_t mySQLConnectionMutex;
 
     private: static SpecializedServer * singletonInstance;
+    private: static pthread_mutex_t singletonInstanceMutex;
     public:  static const SpecializedServer * GetSingletonInstance();
 };

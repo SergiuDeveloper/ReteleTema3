@@ -1,6 +1,7 @@
 #include "../Headers/SpecializedServer.hpp"
 
 SpecializedServer * SpecializedServer::singletonInstance = nullptr;
+pthread_mutex_t SpecializedServer::singletonInstanceMutex;
 
 SuccessState SpecializedServer::Start(unsigned int serverPort)
 {
@@ -40,7 +41,11 @@ SuccessState SpecializedServer::Stop()
     pthread_mutex_destroy(&this->mySQLConnectionMutex);
     pthread_mutex_destroy(&this->consoleMutex);
 
+    while (!pthread_mutex_trylock(&SpecializedServer::singletonInstanceMutex));
     delete SpecializedServer::singletonInstance;
+    pthread_mutex_unlock(&SpecializedServer::singletonInstanceMutex);
+
+    pthread_mutex_destroy(&SpecializedServer::singletonInstanceMutex);
 
     return successState;
 }
@@ -96,8 +101,20 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
 const SpecializedServer * SpecializedServer::GetSingletonInstance()
 {
-    if (SpecializedServer::singletonInstance != nullptr)
-        return SpecializedServer::singletonInstance;
+    int mutexLockReturnValue = pthread_mutex_lock(&SpecializedServer::singletonInstanceMutex);
+    bool isMutexInitialized = (mutexLockReturnValue != EINVAL);
+    bool lockSuccess = (mutexLockReturnValue == 0);
 
-    return (new SpecializedServer());
+    if (!isMutexInitialized)
+        pthread_mutex_init(&SpecializedServer::singletonInstanceMutex, nullptr);
+
+    if (!lockSuccess)
+        while (!pthread_mutex_trylock(&SpecializedServer::singletonInstanceMutex));
+
+    if (SpecializedServer::singletonInstance == nullptr)
+        SpecializedServer::singletonInstance = new SpecializedServer();
+
+    pthread_mutex_unlock(&SpecializedServer::singletonInstanceMutex);
+
+    return SpecializedServer::singletonInstance;
 }
