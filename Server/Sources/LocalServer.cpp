@@ -5,7 +5,10 @@ pthread_mutex_t LocalServer::singletonInstanceMutex;
 
 SuccessState LocalServer::Start()
 {
-    return Server::Start(LOCAL_SERVER_PORT);
+    if (this->serverRunning_Get())
+        return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
+
+    //return Server::Start(/* server location gotten from db */);
 }
 
 SuccessState LocalServer::Stop()
@@ -25,10 +28,6 @@ SuccessState LocalServer::Stop()
 
 void LocalServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
-    bool isLocalConnection = (clientSocket.clientIP == LOCAL_IP);
-
-    if (!isLocalConnection)
-        close(clientSocket.clientSocketDescriptor);
 }
 
 const LocalServer * LocalServer::GetSingletonInstance()

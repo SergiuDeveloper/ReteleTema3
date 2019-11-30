@@ -1,8 +1,5 @@
 #pragma once
 
-#define LOCAL_SERVER_PORT 2000
-#define LOCAL_IP          "127.0.0.1"
-
 #include "Server.hpp"
 
 class LocalServer : public Server

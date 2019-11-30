@@ -5,25 +5,21 @@ pthread_mutex_t SpecializedServer::singletonInstanceMutex;
 
 SuccessState SpecializedServer::Start(unsigned int serverPort)
 {
+    if (this->serverRunning_Get())
+        return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
+
     string mySQLSuperuserPassword = getpass(PROMPT_MYSQL_DB_CREDENTIALS);
 
+    SuccessState successState = MySQLConnector::Initialize(mySQLSuperuserPassword);
+    
+    if (successState.isSuccess_Get())
+        cout<<successState.successStateMessage_Get()<<endl;
+
+    if (!successState.isSuccess_Get())
+        return successState;
+    
     pthread_mutex_init(&this->consoleMutex, nullptr);
-    pthread_mutex_init(&this->mySQLConnectionMutex, nullptr);
-
-    try
-    {
-        this->mySQLDriver = get_driver_instance();
-        this->mySQLConnection = this->mySQLDriver->connect(MYSQL_CONNECTION_STRING(MYSQL_SERVER_PROTOCOL, MYSQL_SERVER_IP, MYSQL_SERVER_PORT), MYSQL_SERVER_SUPERUSER, mySQLSuperuserPassword);
-        this->mySQLConnection->setSchema(MYSQL_DATABASE_DEFAULT_SCHEMA);
-    }
-    catch (SQLException & mySQLException)
-    {
-        delete this->mySQLConnection;
-        return SuccessState(false, ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what()));
-    }
-
-    cout<<SUCCESS_MYSQL_DB_CONNECTED<<endl;
-
+    
     return Server::Start(serverPort);
 }
 
@@ -33,17 +29,8 @@ SuccessState SpecializedServer::Stop()
     if (!successState.isSuccess_Get())
         return successState;
 
-    while (!pthread_mutex_trylock(&this->mySQLConnectionMutex));
-    if (this->mySQLConnection != nullptr)
-    {
-        this->mySQLConnection->close();
-        delete this->mySQLConnection;
-    }
-    if (this->mySQLDriver != nullptr)
-        this->mySQLDriver->threadEnd();
-    pthread_mutex_unlock(&this->mySQLConnectionMutex);
+    MySQLConnector::Deinitialize();
 
-    pthread_mutex_destroy(&this->mySQLConnectionMutex);
     pthread_mutex_destroy(&this->consoleMutex);
 
     while (!pthread_mutex_trylock(&SpecializedServer::singletonInstanceMutex));
@@ -63,7 +50,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
     try
     {
-        mySQLStatement = this->mySQLConnection->createStatement();
+        Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+
+        mySQLStatement = mySQLConnection->createStatement();
         mySQLResultSet = mySQLStatement->executeQuery(MYSQL_GET_WHITELISTED_IP_COUNT_QUERY(clientSocket.clientIP));
 
         if (mySQLResultSet->next())
