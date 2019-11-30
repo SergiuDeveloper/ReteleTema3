@@ -12,8 +12,8 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
 
     try
     {
-        Driver * mySQLDriver = get_driver_instance();
-        this->mySQLConnection = mySQLDriver->connect(MYSQL_CONNECTION_STRING(MYSQL_SERVER_PROTOCOL, MYSQL_SERVER_IP, MYSQL_SERVER_PORT), MYSQL_SERVER_SUPERUSER, mySQLSuperuserPassword);
+        this->mySQLDriver = get_driver_instance();
+        this->mySQLConnection = this->mySQLDriver->connect(MYSQL_CONNECTION_STRING(MYSQL_SERVER_PROTOCOL, MYSQL_SERVER_IP, MYSQL_SERVER_PORT), MYSQL_SERVER_SUPERUSER, mySQLSuperuserPassword);
         this->mySQLConnection->setSchema(MYSQL_DATABASE_DEFAULT_SCHEMA);
     }
     catch (SQLException & mySQLException)
@@ -35,7 +35,12 @@ SuccessState SpecializedServer::Stop()
 
     while (!pthread_mutex_trylock(&this->mySQLConnectionMutex));
     if (this->mySQLConnection != nullptr)
+    {
+        this->mySQLConnection->close();
         delete this->mySQLConnection;
+    }
+    if (this->mySQLDriver != nullptr)
+        this->mySQLDriver->threadEnd();
     pthread_mutex_unlock(&this->mySQLConnectionMutex);
 
     pthread_mutex_destroy(&this->mySQLConnectionMutex);
@@ -69,15 +74,27 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
 
         if (mySQLStatement != nullptr)
+        {
+            mySQLStatement->close();
             delete mySQLStatement;
+        }
         if (mySQLResultSet != nullptr)
+        {
+            mySQLResultSet->close();
             delete mySQLResultSet;
+        }
     }
 
     if (mySQLStatement != nullptr)
+    {
+        mySQLStatement->close();
         delete mySQLStatement;
+    }
     if (mySQLResultSet != nullptr)
+    {
+        mySQLResultSet->close();
         delete mySQLResultSet;
+    }
 
     if (!isWhitelistedIP)
     {

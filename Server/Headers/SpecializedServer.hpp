@@ -39,6 +39,7 @@ class SpecializedServer : public Server
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
 
     private: pthread_mutex_t consoleMutex;
+    private: Driver * mySQLDriver;
     private: Connection * mySQLConnection;
     private: pthread_mutex_t mySQLConnectionMutex;
 
