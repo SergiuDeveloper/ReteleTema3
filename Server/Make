@@ -1,7 +1,6 @@
-
 g++  														\
 -O3 														\
--Wno-unused-result												\
--o Bin/Server 												 	\
+-Wno-unused-result -Wno-pmf-conversions 									\
 Sources/SpecializedServer.cpp Sources/Server.cpp Sources/ClientSocket.cpp Sources/SuccessState.cpp main.cpp	\
+-o Bin/Server													\
 -pthread -lmysqlcppconn
