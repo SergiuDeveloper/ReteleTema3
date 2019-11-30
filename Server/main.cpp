@@ -14,10 +14,12 @@ using namespace std;
 
 void ProgramExit_EventCallback()
 {
-    if (!SpecializedServer::serverRunning_Get())
+    SpecializedServer specializedServer = * (SpecializedServer::GetSingletonInstance());
+    
+    if (!specializedServer.serverRunning_Get())
         return;
 
-    SuccessState successState = SpecializedServer::Stop();
+    SuccessState successState = specializedServer.Stop();
 
     cout<<successState.successStateMessage_Get()<<endl;
 }
@@ -64,7 +66,9 @@ int main(int argc, char ** argv)
             atexit(ProgramExit_EventCallback);
             at_quick_exit(ProgramExit_EventCallback);
 
-            SuccessState successState = SpecializedServer::Start(serverPort);
+            SpecializedServer specializedServer = * (SpecializedServer::GetSingletonInstance());
+
+            SuccessState successState = specializedServer.Start(serverPort);
             
             bool successStateResult = successState.isSuccess_Get();
             write(serverPipe[PIPE_WRITE_INDEX], &successStateResult, sizeof(successStateResult));
@@ -72,7 +76,7 @@ int main(int argc, char ** argv)
 
             cout<<successState.successStateMessage_Get()<<endl;
 
-            while (SpecializedServer::serverRunning_Get());
+            while (specializedServer.serverRunning_Get());
 
             return successStateResult ? EXIT_SUCCESS : EXIT_FAILURE;
         }

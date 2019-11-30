@@ -30,12 +30,18 @@ using namespace sql;
 
 class SpecializedServer : public Server
 {
-    public:  static SuccessState Start(unsigned int serverPort);
-    public:  static SuccessState Stop();
-    
-    private: static void ClientConnected_EventCallback(ClientSocket clientSocket);
+    using Server::Start;
+    using Server::Stop;
 
-    private: static pthread_mutex_t consoleMutex;
-    private: static Connection * mySQLConnection;
-    private: static pthread_mutex_t mySQLConnectionMutex;
+    public:  SuccessState Start(unsigned int serverPort);
+    public:  SuccessState Stop();
+    
+    private: void ClientConnected_EventCallback(ClientSocket clientSocket);
+
+    private: pthread_mutex_t consoleMutex;
+    private: Connection * mySQLConnection;
+    private: pthread_mutex_t mySQLConnectionMutex;
+
+    private: static SpecializedServer * singletonInstance;
+    public:  static const SpecializedServer * GetSingletonInstance();
 };

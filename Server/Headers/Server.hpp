@@ -19,23 +19,26 @@
 #include "ClientSocket.hpp"
 #include "SuccessState.hpp"
 
+typedef void * (* FunctionPointer)(void *);
+
 using namespace std;
 
 class Server
 {
-    public:    static SuccessState Start(unsigned int serverPort, function<void(ClientSocket)> ClientConnected_EventCallback);
-    public:    static SuccessState Stop();
+    public:    SuccessState Start(unsigned int serverPort);
+    public:    SuccessState Stop();
 
-    private:   static unsigned int serverPort;
-    private:   static bool serverRunning;
-    protected: static int serverSocket;
-    protected: static vector<ClientSocket> clientSockets;
-    protected: static pthread_mutex_t clientSocketsMutex;
-    protected: static function<void(ClientSocket)> ClientConnected_EventCallback;
+    protected: virtual void ClientConnected_EventCallback(ClientSocket clientSocket) = 0;
 
-    protected: static pthread_t clientsAcceptanceThread;
-    private:   static void * ClientsAcceptanceThreadFunction(void * threadParameters);
+    private:   unsigned int serverPort;
+    private:   bool serverRunning;
+    protected: int serverSocket;
+    protected: vector<ClientSocket> clientSockets;
+    protected: pthread_mutex_t clientSocketsMutex;
 
-    public:    static unsigned int serverPort_Get();
-    public:    static bool serverRunning_Get();
+    protected: pthread_t clientsAcceptanceThread;
+    private:   void * ClientsAcceptanceThreadFunction(void * threadParameters);
+
+    public:    unsigned int serverPort_Get();
+    public:    bool serverRunning_Get();
 };

@@ -1,31 +1,29 @@
 #include "../Headers/SpecializedServer.hpp"
 
-pthread_mutex_t SpecializedServer::consoleMutex;
-Connection * SpecializedServer::mySQLConnection;
-pthread_mutex_t SpecializedServer::mySQLConnectionMutex;
+SpecializedServer * SpecializedServer::singletonInstance = nullptr;
 
 SuccessState SpecializedServer::Start(unsigned int serverPort)
 {
     string mySQLSuperuserPassword = getpass(PROMPT_MYSQL_DB_CREDENTIALS);
 
-    pthread_mutex_init(&SpecializedServer::consoleMutex, nullptr);
-    pthread_mutex_init(&SpecializedServer::mySQLConnectionMutex, nullptr);
+    pthread_mutex_init(&this->consoleMutex, nullptr);
+    pthread_mutex_init(&this->mySQLConnectionMutex, nullptr);
 
     try
     {
         Driver * mySQLDriver = get_driver_instance();
-        SpecializedServer::mySQLConnection = mySQLDriver->connect(MYSQL_CONNECTION_STRING(MYSQL_SERVER_PROTOCOL, MYSQL_SERVER_IP, MYSQL_SERVER_PORT), MYSQL_SERVER_SUPERUSER, mySQLSuperuserPassword);
-        SpecializedServer::mySQLConnection->setSchema(MYSQL_DATABASE_DEFAULT_SCHEMA);
+        this->mySQLConnection = mySQLDriver->connect(MYSQL_CONNECTION_STRING(MYSQL_SERVER_PROTOCOL, MYSQL_SERVER_IP, MYSQL_SERVER_PORT), MYSQL_SERVER_SUPERUSER, mySQLSuperuserPassword);
+        this->mySQLConnection->setSchema(MYSQL_DATABASE_DEFAULT_SCHEMA);
     }
     catch (SQLException & mySQLException)
     {
-        delete SpecializedServer::mySQLConnection;
+        delete this->mySQLConnection;
         return SuccessState(false, ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what()));
     }
 
     cout<<SUCCESS_MYSQL_DB_CONNECTED<<endl;
 
-    return Server::Start(serverPort, SpecializedServer::ClientConnected_EventCallback);
+    return Server::Start(serverPort);
 }
 
 SuccessState SpecializedServer::Stop()
@@ -34,13 +32,15 @@ SuccessState SpecializedServer::Stop()
     if (!successState.isSuccess_Get())
         return successState;
 
-    while (!pthread_mutex_trylock(&SpecializedServer::mySQLConnectionMutex));
-    if (SpecializedServer::mySQLConnection != nullptr)
-        delete SpecializedServer::mySQLConnection;
-    pthread_mutex_unlock(&SpecializedServer::mySQLConnectionMutex);
+    while (!pthread_mutex_trylock(&this->mySQLConnectionMutex));
+    if (this->mySQLConnection != nullptr)
+        delete this->mySQLConnection;
+    pthread_mutex_unlock(&this->mySQLConnectionMutex);
 
-    pthread_mutex_destroy(&SpecializedServer::mySQLConnectionMutex);
-    pthread_mutex_destroy(&SpecializedServer::consoleMutex);
+    pthread_mutex_destroy(&this->mySQLConnectionMutex);
+    pthread_mutex_destroy(&this->consoleMutex);
+
+    delete SpecializedServer::singletonInstance;
 
     return successState;
 }
@@ -53,7 +53,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
     try
     {
-        mySQLStatement = SpecializedServer::mySQLConnection->createStatement();
+        mySQLStatement = this->mySQLConnection->createStatement();
         mySQLResultSet = mySQLStatement->executeQuery(MYSQL_GET_WHITELISTED_IP_COUNT_QUERY(clientSocket.clientIP));
 
         if (mySQLResultSet->next())
@@ -76,15 +76,15 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
     if (!isWhitelistedIP)
     {
-        for (size_t clientSocketsIterator = 0; clientSocketsIterator < SpecializedServer::clientSockets.size(); ++clientSocketsIterator)
-            if (SpecializedServer::clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP)
+        for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
+            if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP)
             {
-                while (!pthread_mutex_trylock(&SpecializedServer::clientSocketsMutex));
+                while (!pthread_mutex_trylock(&this->clientSocketsMutex));
                 close(clientSocket.clientSocketDescriptor);
                 
-                SpecializedServer::clientSockets[clientSocketsIterator] = SpecializedServer::clientSockets[SpecializedServer::clientSockets.size() - 1];
-                SpecializedServer::clientSockets.pop_back();
-                pthread_mutex_unlock(&SpecializedServer::clientSocketsMutex);
+                this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
+                this->clientSockets.pop_back();
+                pthread_mutex_unlock(&this->clientSocketsMutex);
             }
 
         cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
@@ -92,4 +92,12 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     }
 
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP)<<endl;
+}
+
+const SpecializedServer * SpecializedServer::GetSingletonInstance()
+{
+    if (SpecializedServer::singletonInstance != nullptr)
+        return SpecializedServer::singletonInstance;
+
+    return (new SpecializedServer());
 }
