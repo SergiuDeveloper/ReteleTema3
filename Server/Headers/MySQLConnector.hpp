@@ -2,7 +2,7 @@
 
 #define SUCCESS_MYSQL_DB_CONNECTED                                                      "Successfully connected to MySQL database!"
 #define ERROR_CLIENT_NOT_WHITELISTED(clientIP)                                          ((string)"Could not connect client " + clientIP + " to the server, as he is not whitelisted!")
-#define ERROR_MYSQL_GENERIC_ERROR(mySQLErrorCode, mySQLExceptionMessage)                ((string)"Failed to connect to MySQL database! Runtime error " + to_string(mySQLErrorCode) + ": \"" + mySQLExceptionMessage + "\"")
+#define ERROR_MYSQL_GENERIC_ERROR(mySQLErrorCode, mySQLExceptionMessage)                ((string)"MySQL database error! Runtime error " + to_string(mySQLErrorCode) + ": \"" + mySQLExceptionMessage + "\"")
 #define PROMPT_MYSQL_DB_CREDENTIALS                                                     "Please enter the password for the MySQL database superuser(root): "
 #define MYSQL_SERVER_PROTOCOL                                                           "tcp"
 #define MYSQL_SERVER_IP                                                                 "localhost"

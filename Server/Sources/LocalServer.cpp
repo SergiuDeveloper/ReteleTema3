@@ -15,7 +15,7 @@ SuccessState LocalServer::Start()
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
 
         mySQLStatement = mySQLConnection->createStatement();
-        mySQLStatement->executeQuery(MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY(LOCAL_SERVER_PATH));
+        mySQLStatement->execute(MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY(LOCAL_SERVER_PATH));
     }
     catch (SQLException & mySQLException)
     {

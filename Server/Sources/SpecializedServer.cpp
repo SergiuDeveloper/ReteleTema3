@@ -27,7 +27,11 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
 
     SuccessState localServerSuccessState = localServer.Start();
     if (!localServerSuccessState.isSuccess_Get())
+    {
+        Server::Stop();
+        
         return localServerSuccessState;
+    }
     
     return successState;
 }
