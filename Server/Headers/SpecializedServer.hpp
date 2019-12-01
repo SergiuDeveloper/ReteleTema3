@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include "Server.hpp"
+#include "LocalServer.hpp"
 #include "MySQLConnector.hpp"
 #include "ClientSocket.hpp"
 #include "SuccessState.hpp"
@@ -24,10 +25,12 @@ class SpecializedServer : public Server
     using Server::Stop;
 
     public:  SuccessState Start(unsigned int serverPort);
+    private: SuccessState Start(string serverPath);
     public:  SuccessState Stop();
     
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
 
+    private: LocalServer localServer;
     private: pthread_mutex_t consoleMutex;
 
     private: static SpecializedServer * singletonInstance;

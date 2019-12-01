@@ -20,7 +20,16 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
     
     pthread_mutex_init(&this->consoleMutex, nullptr);
     
-    return Server::Start(serverPort);
+    successState = Server::Start(serverPort);
+
+    if (!successState.isSuccess_Get())
+        return successState;
+
+    SuccessState localServerSuccessState = localServer.Start();
+    if (!localServerSuccessState.isSuccess_Get())
+        return localServerSuccessState;
+    
+    return successState;
 }
 
 SuccessState SpecializedServer::Stop()
@@ -28,6 +37,8 @@ SuccessState SpecializedServer::Stop()
     SuccessState successState = Server::Stop();
     if (!successState.isSuccess_Get())
         return successState;
+
+    localServer.Stop();
 
     MySQLConnector::Deinitialize();
 

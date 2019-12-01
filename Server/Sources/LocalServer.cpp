@@ -8,7 +8,35 @@ SuccessState LocalServer::Start()
     if (this->serverRunning_Get())
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
 
-    //return Server::Start(/* server location gotten from db */);
+    Statement * mySQLStatement;
+
+    try
+    {
+        Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+
+        mySQLStatement = mySQLConnection->createStatement();
+        mySQLStatement->executeQuery(MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY(LOCAL_SERVER_PATH));
+    }
+    catch (SQLException & mySQLException)
+    {
+        cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+
+        if (mySQLStatement != nullptr)
+        {
+            mySQLStatement->close();
+            delete mySQLStatement;
+        }
+
+        return SuccessState(false, ERROR_MYSQL_LOG_LOCAL_SERVER_PATH);
+    }
+
+    if (mySQLStatement != nullptr)
+    {
+        mySQLStatement->close();
+        delete mySQLStatement;
+    }
+
+    return Server::Start(LOCAL_SERVER_PATH);
 }
 
 SuccessState LocalServer::Stop()

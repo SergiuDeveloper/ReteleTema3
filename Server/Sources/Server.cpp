@@ -64,7 +64,7 @@ SuccessState Server::Start(string serverPath)
 
     operationSuccess = (bind(this->serverSocket, (struct sockaddr *)&serverSocketAddr, sizeof(struct sockaddr)) != -1);
     if (!operationSuccess)
-        return SuccessState(false, ERROR_SERVER_SOCKET_BINDING(this->serverPort));
+        return SuccessState(false, ERROR_SERVER_SOCKET_BINDING_PATH(this->serverPath));
 
     operationSuccess = (listen(this->serverSocket, SOMAXCONN) != -1);
     if (!operationSuccess)
@@ -80,7 +80,7 @@ SuccessState Server::Start(string serverPath)
     pthread_create(&this->clientsAcceptanceThread, nullptr, (FunctionPointer)&Server::ClientsAcceptanceThreadFunction, this);
     pthread_detach(this->clientsAcceptanceThread);
 
-    return SuccessState(true, SUCCESS_SERVER_STARTED(this->serverPort));
+    return SuccessState(true, SUCCESS_SERVER_STARTED_PATH(this->serverPath));
 }
 
 SuccessState Server::Stop()
@@ -98,6 +98,9 @@ SuccessState Server::Stop()
     pthread_mutex_unlock(&this->clientSocketsMutex);
 
     pthread_mutex_destroy(&this->clientSocketsMutex);
+
+    if (this->isLocalServer)
+        unlink(this->serverPath.c_str());
 
     return SuccessState(true, SUCCESS_SERVER_STOPPED);
 }
