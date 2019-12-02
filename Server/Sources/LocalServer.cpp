@@ -8,14 +8,15 @@ SuccessState LocalServer::Start()
     if (this->serverRunning_Get())
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
 
-    Statement * mySQLStatement;
+    PreparedStatement * mySQLStatement;
 
     try
     {
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
 
-        mySQLStatement = mySQLConnection->createStatement();
-        mySQLStatement->execute(MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY(LOCAL_SERVER_PATH));
+        mySQLStatement = mySQLConnection->prepareStatement(MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY);
+        mySQLStatement->setString(1, LOCAL_SERVER_PATH);
+        mySQLStatement->execute();
     }
     catch (SQLException & mySQLException)
     {

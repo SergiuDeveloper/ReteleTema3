@@ -3,7 +3,7 @@
 #define HTTP_PORT                                                                       80
 #define SUCCESS_CLIENT_CONNECTED(clientIP)                                              ((string)"Client " + clientIP + " successfully connected!")
 #define MYSQL_CONNECTION_STRING(mySQLServerProtocol, mySQLServerIP, mySQLServerPort)    ((string)mySQLServerProtocol + "://" + mySQLServerIP + ":" + to_string(mySQLServerPort))
-#define MYSQL_IS_WHITELISTED_CLIENT_QUERY(clientIP, clientMAC)                          ((string)"CALL sp_IsWhiteListedClient(\"" + clientIP + "\", \"" + clientMAC + "\");")
+#define MYSQL_IS_WHITELISTED_CLIENT_QUERY                                               ((string)"CALL sp_IsWhiteListedClient(?, ?);")
 
 #include <mysql_connection.h>
 #include <cppconn/statement.h>

@@ -59,7 +59,7 @@ SuccessState SpecializedServer::Stop()
 
 void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
-    Statement * mySQLStatement;
+    PreparedStatement * mySQLStatement;
     ResultSet * mySQLResultSet;
     bool isWhitelistedCient = false;
 
@@ -67,8 +67,10 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     {
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
 
-        mySQLStatement = mySQLConnection->createStatement();
-        mySQLResultSet = mySQLStatement->executeQuery(MYSQL_IS_WHITELISTED_CLIENT_QUERY(clientSocket.clientIP, clientSocket.clientMAC));
+        mySQLStatement = mySQLConnection->prepareStatement(MYSQL_IS_WHITELISTED_CLIENT_QUERY);
+        mySQLStatement->setString(1, clientSocket.clientIP);
+        mySQLStatement->setString(2, clientSocket.clientMAC);
+        mySQLResultSet = mySQLStatement->executeQuery();
 
         if (mySQLResultSet->next())
             isWhitelistedCient = mySQLResultSet->getBoolean(1);

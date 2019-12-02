@@ -1,11 +1,11 @@
 #pragma once
 
-#define LOCAL_SERVER_PATH                                       "/tmp/LocalServer"
-#define ERROR_MYSQL_LOG_LOCAL_SERVER_PATH                       "Failed to log local server path in database"
-#define MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY(localServerPath)   ((string)"CALL sp_LogLocalServerPath(\"" + localServerPath + "\");")
+#define LOCAL_SERVER_PATH                       "/tmp/LocalServer"
+#define ERROR_MYSQL_LOG_LOCAL_SERVER_PATH       "Failed to log local server path in database"
+#define MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY    "CALL sp_LogLocalServerPath(?);"
 
 #include <mysql_connection.h>
-#include <cppconn/statement.h>
+#include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
 #include <cppconn/exception.h>
 #include <string>
