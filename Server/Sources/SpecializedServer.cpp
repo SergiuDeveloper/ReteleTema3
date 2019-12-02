@@ -61,17 +61,17 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
     Statement * mySQLStatement;
     ResultSet * mySQLResultSet;
-    bool isWhitelistedIP = false;
+    bool isWhitelistedCient = false;
 
     try
     {
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
 
         mySQLStatement = mySQLConnection->createStatement();
-        mySQLResultSet = mySQLStatement->executeQuery(MYSQL_GET_WHITELISTED_IP_COUNT_QUERY(clientSocket.clientIP));
+        mySQLResultSet = mySQLStatement->executeQuery(MYSQL_IS_WHITELISTED_CLIENT_QUERY(clientSocket.clientIP, clientSocket.clientMAC));
 
         if (mySQLResultSet->next())
-            isWhitelistedIP = (mySQLResultSet->getInt(1) > 0);
+            isWhitelistedCient = mySQLResultSet->getBoolean(1);
     }
     catch (SQLException & mySQLException)
     {
@@ -100,10 +100,10 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         delete mySQLResultSet;
     }
 
-    if (!isWhitelistedIP)
+    if (!isWhitelistedCient)
     {
         for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
-            if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP)
+            if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
             {
                 while (!pthread_mutex_trylock(&this->clientSocketsMutex));
                 close(clientSocket.clientSocketDescriptor);
@@ -111,8 +111,10 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
                 this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
                 this->clientSockets.pop_back();
                 pthread_mutex_unlock(&this->clientSocketsMutex);
-            }
 
+                break;
+            }
+        
         cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
         return;
     }

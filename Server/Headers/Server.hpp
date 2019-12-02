@@ -11,6 +11,7 @@
 #define ERROR_SERVER_SOCKET_LISTENING                   "Failed to listen to upcoming connections"
 #define INVALID_SERVER_PORT                             -1
 #define INVALID_SERVER_PATH                             ""
+#define MAC_ADDRESS_SIZE                                18
 
 #include <sys/socket.h>
 #include <sys/unistd.h>
@@ -46,6 +47,17 @@ class Server
 
     protected: pthread_t clientsAcceptanceThread;
     private:   void * ClientsAcceptanceThreadFunction(void * threadParameters);
+    private:   void * ClientHandlingThreadFunction(void * threadParameters);
+
+    private:
+    class ClientConnectedThreadParameters
+    {
+        public: ClientConnectedThreadParameters(Server * serverInstance, ClientSocket clientSocket, struct sockaddr_in clientSocketAddr);
+
+        public: Server * serverInstance;
+        public: ClientSocket clientSocket;
+        public: struct sockaddr_in clientSocketAddr;
+    };
 
     public:    unsigned int serverPort_Get();
     public:    string serverPath_Get();

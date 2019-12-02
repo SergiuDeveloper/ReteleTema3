@@ -4,6 +4,6 @@ ClientSocket::ClientSocket()
 {
 }
 
-ClientSocket::ClientSocket(int clientSocketDescriptor, string clientIP) : clientSocketDescriptor(clientSocketDescriptor), clientIP(clientIP)
+ClientSocket::ClientSocket(int clientSocketDescriptor, string clientIP, string clientMAC) : clientSocketDescriptor(clientSocketDescriptor), clientIP(clientIP), clientMAC(clientMAC)
 {
 }
