@@ -68,7 +68,7 @@ int main(int argc, char ** argv)
 
             SpecializedServer specializedServer = * (SpecializedServer::GetSingletonInstance());
 
-            SuccessState successState = specializedServer.Start(serverPort);
+            SuccessState successState = specializedServer.Start();
             
             bool successStateResult = successState.isSuccess_Get();
             write(serverPipe[PIPE_WRITE_INDEX], &successStateResult, sizeof(successStateResult));

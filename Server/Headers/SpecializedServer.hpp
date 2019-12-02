@@ -1,5 +1,6 @@
 #pragma once
 
+#define HTTP_PORT                                                                       80
 #define SUCCESS_CLIENT_CONNECTED(clientIP)                                              ((string)"Client " + clientIP + " successfully connected!")
 #define MYSQL_CONNECTION_STRING(mySQLServerProtocol, mySQLServerIP, mySQLServerPort)    ((string)mySQLServerProtocol + "://" + mySQLServerIP + ":" + to_string(mySQLServerPort))
 #define MYSQL_GET_WHITELISTED_IP_COUNT_QUERY(clientIP)                                  ((string)"SELECT COUNT(*) FROM ClientIPsWhitelist WHERE ClientIP = \"" + clientIP + "\";")
@@ -24,7 +25,7 @@ class SpecializedServer : public Server
     using Server::Start;
     using Server::Stop;
 
-    public:  SuccessState Start(unsigned int serverPort);
+    public:  SuccessState Start();
     private: SuccessState Start(string serverPath);
     public:  SuccessState Stop();
     

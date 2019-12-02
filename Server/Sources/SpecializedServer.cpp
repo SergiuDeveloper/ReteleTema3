@@ -3,7 +3,7 @@
 SpecializedServer * SpecializedServer::singletonInstance = nullptr;
 pthread_mutex_t SpecializedServer::singletonInstanceMutex;
 
-SuccessState SpecializedServer::Start(unsigned int serverPort)
+SuccessState SpecializedServer::Start()
 {
     if (this->serverRunning_Get())
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
@@ -20,7 +20,7 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
     
     pthread_mutex_init(&this->consoleMutex, nullptr);
     
-    successState = Server::Start(serverPort);
+    successState = Server::Start(HTTP_PORT);
 
     if (!successState.isSuccess_Get())
         return successState;
