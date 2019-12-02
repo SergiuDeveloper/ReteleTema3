@@ -2,6 +2,6 @@ g++  														\
 -O3 														\
 -Wno-unused-result -Wno-pmf-conversions 									\
 Sources/SpecializedServer.cpp Sources/LocalServer.cpp Sources/MySQLConnector.cpp Sources/Server.cpp		\
-Sources/ClientSocket.cpp Sources/SuccessState.cpp main.cpp							\
+Sources/LocalClient.cpp Sources/ClientSocket.cpp Sources/SuccessState.cpp Sources/Main.cpp main.cpp		\
 -o Bin/Server													\
 -pthread -lmysqlcppconn

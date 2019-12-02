@@ -62,7 +62,8 @@ SuccessState Server::Start(string serverPath)
     serverSocketAddr.sun_family = AF_UNIX;
     strcpy(serverSocketAddr.sun_path, this->serverPath.c_str());
 
-    operationSuccess = (bind(this->serverSocket, (struct sockaddr *)&serverSocketAddr, sizeof(struct sockaddr)) != -1);
+    unlink(this->serverPath.c_str());
+    operationSuccess = (bind(this->serverSocket, (struct sockaddr *)&serverSocketAddr, SUN_LEN(&serverSocketAddr)) != -1);
     if (!operationSuccess)
         return SuccessState(false, ERROR_SERVER_SOCKET_BINDING_PATH(this->serverPath));
 
