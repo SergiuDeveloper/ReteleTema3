@@ -56,6 +56,7 @@ SuccessState LocalServer::Stop()
 
 void LocalServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
+    
 }
 
 const LocalServer * LocalServer::GetSingletonInstance()
