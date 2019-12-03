@@ -1,6 +1,6 @@
 #pragma once
 
-#define LOCAL_SERVER_PATH                       "/tmp/LocalServer"
+#define LOCAL_SERVER_PATH                       "/tmp/LocalServer2"
 #define ERROR_MYSQL_LOG_LOCAL_SERVER_PATH       "Failed to log local server path in database"
 #define MYSQL_UPDATE_LOCAL_SERVER_PATH_QUERY    "CALL sp_LogLocalServerPath(?);"
 

@@ -10,6 +10,12 @@ bool Main::Initialize(int argumentsCount, char ** argumentsArray)
 
     vector<string> argumentsList = Main::CastCommandLineArguments(argumentsCount, argumentsArray, true);
 
+    if (argumentsList.size() == 0)
+    {
+        cout<<ERROR_NO_ARGUMENTS_PROVIDED<<endl;
+        return false;
+    }
+
     for (auto & iteratedArgument : argumentsList)
         for (auto & iteratedArgumentIterator : iteratedArgument)
             iteratedArgumentIterator = toupper(iteratedArgumentIterator);
@@ -23,6 +29,8 @@ bool Main::ExecuteTask(vector<string> argumentsList)
         return Main::StartServer();
     if (argumentsList[0] == COMMAND_STOP_SERVER)
         return Main::StopServer();
+
+    cout<<ERROR_COMMAND_NOT_FOUND<<endl;
 
     return false;
 }

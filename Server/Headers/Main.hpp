@@ -5,6 +5,8 @@
 #define ERROR_NOT_ROOT                      "You must run the program as the root superuser"
 #define ERROR_FAILED_PIPE                   "Failed to create pipe for server communication"
 #define ERROR_FAILED_FORK                   "Failed to create server process"
+#define ERROR_NO_ARGUMENTS_PROVIDED         "No command line arguments provided"
+#define ERROR_COMMAND_NOT_FOUND             "Failed to execute the requested task, as the command line arguments pattern is unknown"
 #define CHILD_PROCESS_FORK_RESULT           0
 #define PIPE_READ_INDEX                     0
 #define PIPE_WRITE_INDEX                    1
