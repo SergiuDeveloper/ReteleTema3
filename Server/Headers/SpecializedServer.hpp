@@ -21,6 +21,8 @@
 using namespace std;
 using namespace sql;
 
+class LocalServer;
+
 class SpecializedServer : public Server
 {
     using Server::Start;
@@ -32,7 +34,7 @@ class SpecializedServer : public Server
     
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
 
-    private: LocalServer localServer;
+    private: LocalServer * localServer;
     private: pthread_mutex_t consoleMutex;
 
     private: static SpecializedServer * singletonInstance;

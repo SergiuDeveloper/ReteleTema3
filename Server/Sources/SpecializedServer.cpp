@@ -25,7 +25,8 @@ SuccessState SpecializedServer::Start()
     if (!successState.isSuccess_Get())
         return successState;
 
-    SuccessState localServerSuccessState = localServer.Start();
+    this->localServer = new LocalServer();
+    SuccessState localServerSuccessState = this->localServer->Start();
     if (!localServerSuccessState.isSuccess_Get())
     {
         Server::Stop();
@@ -42,7 +43,8 @@ SuccessState SpecializedServer::Stop()
     if (!successState.isSuccess_Get())
         return successState;
 
-    localServer.Stop();
+    this->localServer->Stop();
+    delete this->localServer;
 
     MySQLConnector::Deinitialize();
 

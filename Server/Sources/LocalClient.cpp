@@ -66,8 +66,36 @@ SuccessState LocalClient::StopServer()
     if (!operationSuccess)
         return SuccessState(false, ERROR_LOCAL_SERVER_CONNECTION);
 
+    string encryptedStopServerCommand = Encryption::SHA256::Encrypt(COMMAND_STOP_SERVER);
+    size_t encryptedStopServerCommandLength = encryptedStopServerCommand.size();
+
+    write(serverSocket, &encryptedStopServerCommandLength, sizeof(size_t));
+    write(serverSocket, encryptedStopServerCommand.c_str(), encryptedStopServerCommandLength);
+
+    string commandSuccess = COMMAND_SUCCESS;
+    string commandFailure = COMMAND_FAILURE;
+    std::vector<Encryption::EncryptedValuePair> encryptedValuePairs =
+    {
+        Encryption::EncryptedValuePair(commandSuccess, Encryption::SHA256::Encrypt(commandSuccess)),
+        Encryption::EncryptedValuePair(commandFailure, Encryption::SHA256::Encrypt(commandFailure))
+    };
+
+    size_t commandSuccessStatusEncrpytedLength;
+    read(serverSocket, &commandSuccessStatusEncrpytedLength, sizeof(size_t));
+    char * commandSuccessStatusEncrypted = new char[commandSuccessStatusEncrpytedLength];
+    read(serverSocket, commandSuccessStatusEncrypted, commandSuccessStatusEncrpytedLength);
     
-    
+    string commandSuccessStatus = Encryption::SHA256::Decrypt(commandSuccessStatusEncrypted, encryptedValuePairs);
+
+    delete commandSuccessStatusEncrypted;
+
+    if (commandSuccessStatus != commandSuccess)
+    {
+        cout<<commandSuccessStatus<<endl;
+
+        return SuccessState(false, ERROR_SERVER_STOPPED);
+    }
+
     LocalClient::serverStopped = true;
 
     return SuccessState(true, SUCCESS_SERVER_STOPPED);
