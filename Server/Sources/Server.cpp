@@ -89,9 +89,8 @@ SuccessState Server::Stop()
     if (!this->serverRunning)
         return SuccessState(false, ERROR_SERVER_NOT_RUNNING);
 
-    close(serverSocket);
-    this->serverRunning = false;
-
+    close(this->serverSocket);
+    
     while (!pthread_mutex_trylock(&this->clientSocketsMutex));
     for (auto & clientSocket : this->clientSockets)
         close(clientSocket.clientSocketDescriptor);
@@ -103,6 +102,8 @@ SuccessState Server::Stop()
     if (this->isLocalServer)
         unlink(this->serverPath.c_str());
 
+    this->serverRunning = false;
+
     return SuccessState(true, SUCCESS_SERVER_STOPPED);
 }
 
@@ -111,6 +112,9 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
     ClientSocket clientSocket;
     struct sockaddr_in clientSocketAddr;
     socklen_t clientSocketAddrLen;
+
+    Server::ClientConnectedThreadParameters clientConnectedThreadParameters;
+    pthread_t clientHandlingThread;
     
     bool operationSuccess;
     while (this->serverRunning)
@@ -121,16 +125,14 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
         while (this->serverRunning && !operationSuccess)
         {
             clientSocket.clientSocketDescriptor = accept(this->serverSocket, this->isLocalServer ? nullptr : (struct sockaddr *)&clientSocketAddr, this->isLocalServer ? nullptr : &clientSocketAddrLen);
-
             operationSuccess = (clientSocket.clientSocketDescriptor > 0);
         }
 
         if (this->serverRunning && operationSuccess)
         {
-            Server::ClientConnectedThreadParameters * clientConnectedThreadParameters = new Server::ClientConnectedThreadParameters(this, clientSocket, clientSocketAddr);
+            clientConnectedThreadParameters = Server::ClientConnectedThreadParameters(this, clientSocket, clientSocketAddr);
 
-            pthread_t clientHandlingThread;
-            pthread_create(&clientHandlingThread, nullptr, (FunctionPointer)&Server::ClientHandlingThreadFunction, clientConnectedThreadParameters);
+            pthread_create(&clientHandlingThread, nullptr, (FunctionPointer)&Server::ClientHandlingThreadFunctionHelper, &clientConnectedThreadParameters);
             pthread_detach(clientHandlingThread);
         }
     }
@@ -138,19 +140,56 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
     return nullptr;
 }
 
-void * Server::ClientHandlingThreadFunction(void * threadParameters)
+void * Server::ClientHandlingThreadFunctionHelper(void * threadParameters)
 {
     Server::ClientConnectedThreadParameters * clientConnectedThreadParameters = (Server::ClientConnectedThreadParameters *)threadParameters;
+    clientConnectedThreadParameters->serverInstance->ClientHandlingThreadFunction(* clientConnectedThreadParameters);
+}
 
-    ClientSocket clientSocket = clientConnectedThreadParameters->clientSocket;
+void * Server::ClientHandlingThreadFunction(Server::ClientConnectedThreadParameters clientConnectedThreadParameters)
+{
+    ClientSocket clientSocket = clientConnectedThreadParameters.clientSocket;
+    if (!this->isLocalServer)
+    {
+        struct pollfd pollDescriptor;
+        pollDescriptor.fd = clientSocket.clientSocketDescriptor;
+        pollDescriptor.events = POLLIN;
+        int pollReturnValue = poll(&pollDescriptor, 1, DEFAULT_RECV_TIMEOUT);
+        
+        bool operationSuccess;
+        operationSuccess = (pollReturnValue > 0);
+        if (!operationSuccess)
+        {
+            close(clientSocket.clientSocketDescriptor);
+            return nullptr;
+        }
+        size_t macAddressSize;
+        operationSuccess = (read(clientSocket.clientSocketDescriptor, &macAddressSize, sizeof(size_t)) > 0);
+        if (!operationSuccess)
+        {
+            close(clientSocket.clientSocketDescriptor);
+            return nullptr;
+        }
 
-    char clientMAC[MAC_ADDRESS_SIZE + 1];
-    read(clientSocket.clientSocketDescriptor, &clientMAC, MAC_ADDRESS_SIZE + 1);
+        pollReturnValue = poll(&pollDescriptor, 1, DEFAULT_RECV_TIMEOUT);
+        operationSuccess = (pollReturnValue > 0);
+        if (!operationSuccess)
+        {
+            close(clientSocket.clientSocketDescriptor);
+            return nullptr;
+        }
+        char * clientMAC = new char[macAddressSize + 1];
+        operationSuccess = (read(clientSocket.clientSocketDescriptor, clientMAC, macAddressSize) > 0);
+        if (!operationSuccess)
+        {
+            close(clientSocket.clientSocketDescriptor);
+            return nullptr;
+        }
+        clientMAC[macAddressSize] = '\0';
 
-    clientSocket.clientIP = this->isLocalServer ? nullptr : inet_ntoa(clientConnectedThreadParameters->clientSocketAddr.sin_addr);
-    clientSocket.clientMAC = clientMAC;
-
-    delete clientConnectedThreadParameters;
+        clientSocket.clientIP = this->isLocalServer ? nullptr : inet_ntoa(clientConnectedThreadParameters.clientSocketAddr.sin_addr);
+        clientSocket.clientMAC = clientMAC;
+    }
 
     while (!pthread_mutex_trylock(&this->clientSocketsMutex));
     this->clientSockets.push_back(clientSocket);
@@ -178,6 +217,10 @@ string Server::serverPath_Get()
 bool Server::serverRunning_Get()
 {
     return this->serverRunning;
+}
+
+Server::ClientConnectedThreadParameters::ClientConnectedThreadParameters()
+{
 }
 
 Server::ClientConnectedThreadParameters::ClientConnectedThreadParameters(Server * serverInstance, ClientSocket clientSocket, struct sockaddr_in clientSocketAddr) : serverInstance(serverInstance), clientSocket(clientSocket),

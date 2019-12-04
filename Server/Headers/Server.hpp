@@ -9,15 +9,16 @@
 #define ERROR_SERVER_SOCKET_BINDING(serverPort)         ((string)"Could not bind server socket to port " + to_string(serverPort))
 #define ERROR_SERVER_SOCKET_BINDING_PATH(serverPath)    ((string)"Could not bind server socket to path " + serverPath)
 #define ERROR_SERVER_SOCKET_LISTENING                   "Failed to listen to upcoming connections"
+#define DEFAULT_RECV_TIMEOUT                            5000
 #define INVALID_SERVER_PORT                             -1
 #define INVALID_SERVER_PATH                             ""
-#define MAC_ADDRESS_SIZE                                18
 
 #include <sys/socket.h>
 #include <sys/unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <pthread.h>
 #include <string>
 #include <vector>
@@ -31,6 +32,17 @@ using namespace std;
 
 class Server
 {
+    private:
+    class ClientConnectedThreadParameters
+    {
+        public: ClientConnectedThreadParameters();
+        public: ClientConnectedThreadParameters(Server * serverInstance, ClientSocket clientSocket, struct sockaddr_in clientSocketAddr);
+
+        public: Server * serverInstance;
+        public: ClientSocket clientSocket;
+        public: struct sockaddr_in clientSocketAddr;
+    };
+
     public:    SuccessState Start(unsigned int serverPort);
     public:    SuccessState Start(string serverPath);
     public:    SuccessState Stop();
@@ -47,17 +59,8 @@ class Server
 
     protected: pthread_t clientsAcceptanceThread;
     private:   void * ClientsAcceptanceThreadFunction(void * threadParameters);
-    private:   void * ClientHandlingThreadFunction(void * threadParameters);
-
-    private:
-    class ClientConnectedThreadParameters
-    {
-        public: ClientConnectedThreadParameters(Server * serverInstance, ClientSocket clientSocket, struct sockaddr_in clientSocketAddr);
-
-        public: Server * serverInstance;
-        public: ClientSocket clientSocket;
-        public: struct sockaddr_in clientSocketAddr;
-    };
+    private:   static void * ClientHandlingThreadFunctionHelper(void * threadParameters);
+    private:   void * ClientHandlingThreadFunction(Server::ClientConnectedThreadParameters clientConnectedThreadParameters);
 
     public:    unsigned int serverPort_Get();
     public:    string serverPath_Get();

@@ -27,6 +27,8 @@ class LocalServer : public Server
     using Server::Start;
     using Server::Stop;
 
+    private: LocalServer();
+
     public:  SuccessState Start();
     private: SuccessState Start(unsigned int serverPort);
     private: SuccessState Start(string serverPath);

@@ -3,6 +3,10 @@
 LocalServer * LocalServer::singletonInstance;
 pthread_mutex_t LocalServer::singletonInstanceMutex;
 
+LocalServer::LocalServer()
+{
+}
+
 SuccessState LocalServer::Start()
 {
     if (this->serverRunning_Get())
@@ -42,53 +46,49 @@ SuccessState LocalServer::Start()
 
 SuccessState LocalServer::Stop()
 {
-    SuccessState successState = Server::Stop();
-    if (!successState.isSuccess_Get())
-        return successState;
-
-    while (!pthread_mutex_trylock(&LocalServer::singletonInstanceMutex));
-    delete LocalServer::singletonInstance;
-    pthread_mutex_unlock(&LocalServer::singletonInstanceMutex);
-
     pthread_mutex_destroy(&LocalServer::singletonInstanceMutex);
 
-    return successState;
+    return Server::Stop();
 }
 
 void LocalServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
     size_t encryptedCommandLength;
-
     read(clientSocket.clientSocketDescriptor, &encryptedCommandLength, sizeof(size_t));
-    char * encrpytedCommand = new char[encryptedCommandLength];
-    read(clientSocket.clientSocketDescriptor, encrpytedCommand, encryptedCommandLength);
-
+    char * encryptedCommand = new char[encryptedCommandLength + 1];
+    read(clientSocket.clientSocketDescriptor, encryptedCommand, encryptedCommandLength);
+    encryptedCommand[encryptedCommandLength] = '\0';
+    
     string commandStopServer = COMMAND_STOP_SERVER;
     std::vector<Encryption::EncryptedValuePair> encryptedValuePairs =
     {
         Encryption::EncryptedValuePair(commandStopServer, Encryption::SHA256::Encrypt(commandStopServer))
     };
-
-    string receivedCommand = Encryption::SHA256::Decrypt(encrpytedCommand, encryptedValuePairs);
-
-    delete encrpytedCommand;
-
+    
+    string receivedCommand = Encryption::SHA256::Decrypt(encryptedCommand, encryptedValuePairs);
+    delete encryptedCommand;
+    
     bool successfullyStoppedServer = false;
     if (receivedCommand == commandStopServer)
     {
         SpecializedServer * specializedServer = (SpecializedServer *)SpecializedServer::GetSingletonInstance();
-
+        
         if (specializedServer != nullptr && specializedServer->serverRunning_Get())
             successfullyStoppedServer = specializedServer->Stop().isSuccess_Get();
     }
-
+    
     string commandToSend = (successfullyStoppedServer ? COMMAND_SUCCESS : COMMAND_FAILURE); 
-    string encryptedCommandToSend = Encryption::SHA256::Encrypt(commandToSend);
-    size_t encrpytedCommandToSendLength = encryptedCommandToSend.size();
-
+    string encryptedCommandToSendString = Encryption::SHA256::Encrypt(commandToSend);
+    char * encryptedCommandToSend = new char[encryptedCommandToSendString.size() + 1];
+    strcpy(encryptedCommandToSend, encryptedCommandToSendString.c_str());
+    encryptedCommandToSend[encryptedCommandToSendString.size()] = '\0';
+    size_t encrpytedCommandToSendLength = encryptedCommandToSendString.size();
+    
     write(clientSocket.clientSocketDescriptor, &encrpytedCommandToSendLength, sizeof(size_t));
-    write(clientSocket.clientSocketDescriptor, encryptedCommandToSend.c_str(), encryptedCommandLength);
-
+    write(clientSocket.clientSocketDescriptor, encryptedCommandToSend, encryptedCommandLength);
+    
+    if (successfullyStoppedServer)
+        this->Stop();
 }
 
 const LocalServer * LocalServer::GetSingletonInstance()

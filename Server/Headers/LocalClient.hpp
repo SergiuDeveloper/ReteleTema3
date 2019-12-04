@@ -11,6 +11,7 @@
 #define ERROR_LOCAL_SERVER_CONNECTION       "Failed to connect to the local server"
 #define MYSQL_GET_LOCAL_SERVER_PATH_QUERY   "CALL sp_GetLocalServerPath();"
 #define INVALID_SERVER_PATH                 ""
+#define DEFAULT_RECV_TIMEOUT                5000
 
 #include <mysql_connection.h>
 #include <cppconn/statement.h>
@@ -18,8 +19,10 @@
 #include <cppconn/exception.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <poll.h>
 #include <iostream>
 #include <algorithm>
+#include <exception>
 #include "MySQLConnector.hpp"
 #include "Encryption.hpp"
 #include "SuccessState.hpp"

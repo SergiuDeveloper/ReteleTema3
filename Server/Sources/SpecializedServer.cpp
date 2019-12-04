@@ -3,6 +3,10 @@
 SpecializedServer * SpecializedServer::singletonInstance = nullptr;
 pthread_mutex_t SpecializedServer::singletonInstanceMutex;
 
+SpecializedServer::SpecializedServer()
+{
+}
+
 SuccessState SpecializedServer::Start()
 {
     if (this->serverRunning_Get())
@@ -14,8 +18,7 @@ SuccessState SpecializedServer::Start()
     
     if (successState.isSuccess_Get())
         cout<<successState.successStateMessage_Get()<<endl;
-
-    if (!successState.isSuccess_Get())
+    else
         return successState;
     
     pthread_mutex_init(&this->consoleMutex, nullptr);
@@ -25,7 +28,7 @@ SuccessState SpecializedServer::Start()
     if (!successState.isSuccess_Get())
         return successState;
 
-    this->localServer = new LocalServer();
+    this->localServer = (LocalServer *)LocalServer::GetSingletonInstance();
     SuccessState localServerSuccessState = this->localServer->Start();
     if (!localServerSuccessState.isSuccess_Get())
     {
@@ -33,30 +36,20 @@ SuccessState SpecializedServer::Start()
         
         return localServerSuccessState;
     }
+
+    SpecializedServer::singletonInstance = this;
     
     return successState;
 }
 
 SuccessState SpecializedServer::Stop()
 {
-    SuccessState successState = Server::Stop();
-    if (!successState.isSuccess_Get())
-        return successState;
-
-    this->localServer->Stop();
-    delete this->localServer;
-
     MySQLConnector::Deinitialize();
-
+    
     pthread_mutex_destroy(&this->consoleMutex);
-
-    while (!pthread_mutex_trylock(&SpecializedServer::singletonInstanceMutex));
-    delete SpecializedServer::singletonInstance;
-    pthread_mutex_unlock(&SpecializedServer::singletonInstanceMutex);
-
     pthread_mutex_destroy(&SpecializedServer::singletonInstanceMutex);
-
-    return successState;
+    
+    return Server::Stop();
 }
 
 void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
@@ -68,18 +61,26 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     try
     {
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
-
+        
         mySQLStatement = mySQLConnection->prepareStatement(MYSQL_IS_WHITELISTED_CLIENT_QUERY);
         mySQLStatement->setString(1, clientSocket.clientIP);
         mySQLStatement->setString(2, clientSocket.clientMAC);
         mySQLResultSet = mySQLStatement->executeQuery();
-
+        
         if (mySQLResultSet->next())
             isWhitelistedCient = mySQLResultSet->getBoolean(1);
+
+        while (mySQLResultSet->next());
+        while (mySQLStatement->getMoreResults())
+            mySQLResultSet = mySQLStatement->getResultSet();
     }
     catch (SQLException & mySQLException)
     {
         cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+
+        while (mySQLResultSet->next());
+        while (mySQLStatement->getMoreResults())
+            mySQLResultSet = mySQLStatement->getResultSet();
 
         if (mySQLStatement != nullptr)
         {
@@ -115,15 +116,31 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
                 this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
                 this->clientSockets.pop_back();
                 pthread_mutex_unlock(&this->clientSocketsMutex);
-
-                break;
             }
         
-        cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
+        cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
         return;
     }
+    
+    bool foundClient = false;
+    for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
+        if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
+            if (foundClient)
+            {
+                while (!pthread_mutex_trylock(&this->clientSocketsMutex));
+                close(clientSocket.clientSocketDescriptor);
+                    
+                this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
+                this->clientSockets.pop_back();
+                pthread_mutex_unlock(&this->clientSocketsMutex);
 
-    cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP)<<endl;
+                cout<<ERROR_CLIENT_ALREADY_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+                return;
+            }
+            else
+                foundClient = true;
+
+    cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
 }
 
 const SpecializedServer * SpecializedServer::GetSingletonInstance()

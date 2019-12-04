@@ -61,7 +61,6 @@ bool Main::StartServer()
         {
             close(serverPipe[PIPE_READ_INDEX]);
             
-            atexit(Main::ProgramExit_EventCallback);
             at_quick_exit(Main::ProgramExit_EventCallback);
 
             SpecializedServer specializedServer = * (SpecializedServer::GetSingletonInstance());
@@ -97,7 +96,7 @@ bool Main::StopServer()
 {
     SuccessState successState = LocalClient::StopServer();
 
-    cout<<successState.successStateMessage_Get();
+    cout<<successState.successStateMessage_Get()<<endl;
 
     return successState.isSuccess_Get();
 }

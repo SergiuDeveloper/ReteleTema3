@@ -22,7 +22,7 @@ string Encryption::SHA256::Decrypt(string encryptedString, vector<Encryption::En
 {
     for (auto & encryptedValuePair : encryptedValuePairs)
         if (encryptedValuePair.encryptedValue == encryptedString)
-            return encryptedString;
+            return encryptedValuePair.originalValue;
 
     return INVALID_STRING;
 }

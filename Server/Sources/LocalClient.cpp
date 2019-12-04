@@ -3,9 +3,18 @@
 bool LocalClient::serverStopped = false;
 
 SuccessState LocalClient::StopServer()
-{
+{   
     if (LocalClient::serverStopped)
         return SuccessState(false, ERROR_NO_SERVER_INSTANCE_RUNNING);
+
+    string mySQLSuperuserPassword = getpass(PROMPT_MYSQL_DB_CREDENTIALS);
+
+    SuccessState successState = MySQLConnector::Initialize(mySQLSuperuserPassword);
+    
+    if (successState.isSuccess_Get())
+        cout<<successState.successStateMessage_Get()<<endl;
+    else
+        return successState;
 
     Statement * mySQLStatement;
     ResultSet * mySQLResultSet;
@@ -17,13 +26,21 @@ SuccessState LocalClient::StopServer()
 
         mySQLStatement = mySQLConnection->createStatement();
         mySQLResultSet = mySQLStatement->executeQuery(MYSQL_GET_LOCAL_SERVER_PATH_QUERY);
-
+    
         if (mySQLResultSet->next())
             localServerPath = mySQLResultSet->getString(1);
+
+        while (mySQLResultSet->next());
+        while (mySQLStatement->getMoreResults())
+            mySQLResultSet = mySQLStatement->getResultSet();
     }
     catch (SQLException & mySQLException)
     {
         cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+
+        while (mySQLResultSet->next());
+        while (mySQLStatement->getMoreResults())
+            mySQLResultSet = mySQLStatement->getResultSet();
 
         if (mySQLStatement != nullptr)
         {
@@ -48,6 +65,8 @@ SuccessState LocalClient::StopServer()
         delete mySQLResultSet;
     }
 
+    MySQLConnector::Deinitialize();
+
     if (localServerPath == INVALID_SERVER_PATH)
         return SuccessState(false, ERROR_GET_LOCAL_SERVER_PATH);
 
@@ -66,11 +85,14 @@ SuccessState LocalClient::StopServer()
     if (!operationSuccess)
         return SuccessState(false, ERROR_LOCAL_SERVER_CONNECTION);
 
-    string encryptedStopServerCommand = Encryption::SHA256::Encrypt(COMMAND_STOP_SERVER);
-    size_t encryptedStopServerCommandLength = encryptedStopServerCommand.size();
+    string encryptedStopServerCommandString = Encryption::SHA256::Encrypt(COMMAND_STOP_SERVER);
+    char * encryptedStopServerCommand = new char[encryptedStopServerCommandString.size() + 1];
+    strcpy(encryptedStopServerCommand, encryptedStopServerCommandString.c_str());
+    encryptedStopServerCommand[encryptedStopServerCommandString.size()] = '\0';
+    size_t encryptedStopServerCommandLength = encryptedStopServerCommandString.size();
 
     write(serverSocket, &encryptedStopServerCommandLength, sizeof(size_t));
-    write(serverSocket, encryptedStopServerCommand.c_str(), encryptedStopServerCommandLength);
+    write(serverSocket, encryptedStopServerCommand, encryptedStopServerCommandLength);
 
     string commandSuccess = COMMAND_SUCCESS;
     string commandFailure = COMMAND_FAILURE;
@@ -80,23 +102,65 @@ SuccessState LocalClient::StopServer()
         Encryption::EncryptedValuePair(commandFailure, Encryption::SHA256::Encrypt(commandFailure))
     };
 
+    struct pollfd pollDescriptor;
+    pollDescriptor.fd = serverSocket;
+    pollDescriptor.events = POLLIN;
+
+    bool badAllocException = false;
+
     size_t commandSuccessStatusEncrpytedLength;
-    read(serverSocket, &commandSuccessStatusEncrpytedLength, sizeof(size_t));
-    char * commandSuccessStatusEncrypted = new char[commandSuccessStatusEncrpytedLength];
-    read(serverSocket, commandSuccessStatusEncrypted, commandSuccessStatusEncrpytedLength);
-    
-    string commandSuccessStatus = Encryption::SHA256::Decrypt(commandSuccessStatusEncrypted, encryptedValuePairs);
+    char * commandSuccessStatusEncrypted;
+    string commandSuccessStatus;
 
-    delete commandSuccessStatusEncrypted;
-
-    if (commandSuccessStatus != commandSuccess)
+    int pollReturnValue = poll(&pollDescriptor, 1, DEFAULT_RECV_TIMEOUT);
+    operationSuccess;
+    operationSuccess = (pollReturnValue > 0);   
+    if (!operationSuccess)
     {
-        cout<<commandSuccessStatus<<endl;
+        LocalClient::serverStopped = true;
+        return SuccessState(true, SUCCESS_SERVER_STOPPED);
+    }
+    operationSuccess = (read(serverSocket, &commandSuccessStatusEncrpytedLength, sizeof(size_t)) > 0);
+    if (!operationSuccess)
+    {
+        LocalClient::serverStopped = true;
+        return SuccessState(true, SUCCESS_SERVER_STOPPED);
+    }
+    try
+    {
+        pollReturnValue = poll(&pollDescriptor, 1, DEFAULT_RECV_TIMEOUT);
+        operationSuccess = (pollReturnValue > 0);
+        if (!operationSuccess)
+        {
+            LocalClient::serverStopped = true;
+            return SuccessState(true, SUCCESS_SERVER_STOPPED);
+        }
+        commandSuccessStatusEncrypted = new char[commandSuccessStatusEncrpytedLength + 1];
+        operationSuccess = (read(serverSocket, commandSuccessStatusEncrypted, commandSuccessStatusEncrpytedLength) > 0);
+        if (!operationSuccess)
+        {
+            LocalClient::serverStopped = true;
+            return SuccessState(true, SUCCESS_SERVER_STOPPED);
+        }
+        commandSuccessStatusEncrypted[commandSuccessStatusEncrpytedLength] = '\0';
+    
+        commandSuccessStatus = Encryption::SHA256::Decrypt(commandSuccessStatusEncrypted, encryptedValuePairs);
 
-        return SuccessState(false, ERROR_SERVER_STOPPED);
+        delete commandSuccessStatusEncrypted;
+    }
+    catch (exception & thrownException)
+    {
+        badAllocException = true;
+
+        if (commandSuccessStatusEncrypted != nullptr)
+            delete commandSuccessStatusEncrypted;
     }
 
-    LocalClient::serverStopped = true;
-
-    return SuccessState(true, SUCCESS_SERVER_STOPPED);
+    if (badAllocException || commandSuccessStatus == commandSuccess || commandSuccessStatus == INVALID_STRING)
+    {
+        LocalClient::serverStopped = true;
+        return SuccessState(true, SUCCESS_SERVER_STOPPED);
+    }
+    
+    return SuccessState(false, ERROR_SERVER_STOPPED);
 }
