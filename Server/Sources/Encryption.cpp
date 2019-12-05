@@ -27,6 +27,10 @@ string Encryption::SHA256::Decrypt(string encryptedString, vector<Encryption::En
     return INVALID_STRING;
 }
 
+Encryption::EncryptedValuePair::EncryptedValuePair()
+{
+}
+
 Encryption::EncryptedValuePair::EncryptedValuePair(string originalValue, string encryptedValue) : originalValue(originalValue), encryptedValue(encryptedValue)
 {
 }

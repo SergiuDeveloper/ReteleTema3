@@ -56,19 +56,18 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 {
     PreparedStatement * mySQLStatement;
     ResultSet * mySQLResultSet;
-    bool isWhitelistedCient = false;
+    bool isWhitelistedIP = false;
 
     try
     {
         Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
         
-        mySQLStatement = mySQLConnection->prepareStatement(MYSQL_IS_WHITELISTED_CLIENT_QUERY);
+        mySQLStatement = mySQLConnection->prepareStatement(MYSQL_IS_WHITELISTED_IP_QUERY);
         mySQLStatement->setString(1, clientSocket.clientIP);
-        mySQLStatement->setString(2, clientSocket.clientMAC);
         mySQLResultSet = mySQLStatement->executeQuery();
         
         if (mySQLResultSet->next())
-            isWhitelistedCient = mySQLResultSet->getBoolean(1);
+            isWhitelistedIP = mySQLResultSet->getBoolean(1);
 
         while (mySQLResultSet->next());
         while (mySQLStatement->getMoreResults())
@@ -105,22 +104,101 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         delete mySQLResultSet;
     }
 
-    if (!isWhitelistedCient)
+    string decryptedClientMAC;
+
+    bool isWhitelistedMAC = false;
+    if (isWhitelistedIP)
     {
-        for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
+        vector<string> dbClientMACs;
+
+        try
+        {
+            Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+            
+            mySQLStatement = mySQLConnection->prepareStatement(MYSQL_GET_MACS_FOR_WHITELISTED_IP_QUERY);
+            mySQLStatement->setString(1, clientSocket.clientIP);
+            mySQLResultSet = mySQLStatement->executeQuery();
+            
+            string dbClientMAC;
+
+            while (mySQLResultSet->next())
+            {
+                dbClientMAC = mySQLResultSet->getString(1);
+
+                dbClientMACs.push_back(dbClientMAC);
+            }
+
+            while (mySQLStatement->getMoreResults())
+                mySQLResultSet = mySQLStatement->getResultSet();
+        }
+        catch (SQLException & mySQLException)
+        {
+            cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+
+            while (mySQLResultSet->next());
+            while (mySQLStatement->getMoreResults())
+                mySQLResultSet = mySQLStatement->getResultSet();
+
+            if (mySQLStatement != nullptr)
+            {
+                mySQLStatement->close();
+                delete mySQLStatement;
+            }
+            if (mySQLResultSet != nullptr)
+            {
+                mySQLResultSet->close();
+                delete mySQLResultSet;
+            }
+        }
+
+        if (mySQLStatement != nullptr)
+        {
+            mySQLStatement->close();
+            delete mySQLStatement;
+        }
+        if (mySQLResultSet != nullptr)
+        {
+            mySQLResultSet->close();
+            delete mySQLResultSet;
+        }
+
+        string dbClientMACEncrypted;
+        for (auto & dbClientMAC : dbClientMACs)
+        {
+            dbClientMACEncrypted = Encryption::SHA256::Encrypt(dbClientMAC);
+
+            if (dbClientMACEncrypted == clientSocket.clientMAC)
+            {
+                isWhitelistedMAC = true;
+                break;
+            }
+        }
+    }
+
+    bool isWhitelistedClient = isWhitelistedIP && isWhitelistedMAC;
+
+    for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
             if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
             {
                 while (!pthread_mutex_trylock(&this->clientSocketsMutex));
-                close(clientSocket.clientSocketDescriptor);
+
+                if (isWhitelistedClient)
+                    this->clientSockets[clientSocketsIterator].clientMAC = decryptedClientMAC;
+                else
+                {
+                    close(clientSocket.clientSocketDescriptor);
                 
-                this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
-                this->clientSockets.pop_back();
+                    this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
+                    this->clientSockets.pop_back();
+
+                    pthread_mutex_unlock(&this->clientSocketsMutex);
+
+                    cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+                    return;
+                }
+
                 pthread_mutex_unlock(&this->clientSocketsMutex);
             }
-        
-        cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
-        return;
-    }
     
     bool foundClient = false;
     for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)

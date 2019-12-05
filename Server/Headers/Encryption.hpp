@@ -24,6 +24,7 @@ class Encryption
     public:
     class EncryptedValuePair
     {
+        public: EncryptedValuePair();
         public: EncryptedValuePair(string originalValue, string encryptedValue);
 
         public: string originalValue;
