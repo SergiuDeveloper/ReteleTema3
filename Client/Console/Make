@@ -1,5 +1,6 @@
 g++  								\
 -O3 								\
-Sources/Encryption.cpp Sources/SuccessState.cpp main.cpp	\
+Sources/Client.cpp Sources/Encryption.cpp 			\
+Sources/SuccessState.cpp main.cpp				\
 -o Bin/Client							\
 -lcrypto

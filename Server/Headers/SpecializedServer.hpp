@@ -6,8 +6,7 @@
 #define MYSQL_CONNECTION_STRING(mySQLServerProtocol, mySQLServerIP, mySQLServerPort)    ((string)mySQLServerProtocol + "://" + mySQLServerIP + ":" + to_string(mySQLServerPort))
 #define MYSQL_IS_WHITELISTED_IP_QUERY                                                   ((string)"CALL sp_IsWhitelistedIP(?);")
 #define MYSQL_GET_MACS_FOR_WHITELISTED_IP_QUERY                                         ((string)"CALL sp_GetMACsForWhitelistedIP(?);")
-#define USER_TAG                                                                        "USER"
-#define ADMIN_TAG                                                                       "ADMIN"
+#define MYSQL_GET_ALL_ADMINISTRATOR_CREDENTIALS                                         ((string)"CALL sp_GetAllAdministratorCredentials();")
 
 #include <mysql_connection.h>
 #include <cppconn/statement.h>

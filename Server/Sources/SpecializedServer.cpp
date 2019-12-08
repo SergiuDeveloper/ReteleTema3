@@ -165,6 +165,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         string dbClientMACEncrypted;
         for (auto & dbClientMAC : dbClientMACs)
         {
+            for (auto & dbClientMACIterator : dbClientMAC)
+                dbClientMACIterator = toupper(dbClientMACIterator);
+                
             dbClientMACEncrypted = Encryption::SHA256::Encrypt(dbClientMAC);
 
             if (dbClientMACEncrypted == clientSocket.clientMAC)
@@ -175,7 +178,138 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         }
     }
 
-    bool isWhitelistedClient = isWhitelistedIP && isWhitelistedMAC;
+    bool operationSuccess;
+
+    char * clientUsername;
+    size_t clientUsernameLength;
+    if (isWhitelistedIP && isWhitelistedMAC)
+    {
+        operationSuccess = (read(clientSocket.clientSocketDescriptor, &clientUsernameLength, sizeof(size_t)) > 0);
+        if (operationSuccess)
+        {
+            clientUsername = new char[clientUsernameLength + 1];
+
+            operationSuccess = (read(clientSocket.clientSocketDescriptor, clientUsername, clientUsernameLength) > 0);
+            clientUsername[clientUsernameLength] = '\0';
+            if (!operationSuccess)
+            {
+                isWhitelistedIP = false;
+                isWhitelistedMAC = false;
+
+                delete clientUsername;
+            }
+        }
+        else
+        {
+            isWhitelistedIP = false;
+            isWhitelistedMAC = false;
+        }
+    }
+
+    char * clientPassword;
+    size_t clientPasswordLength;
+    if (isWhitelistedIP && isWhitelistedMAC)
+    {
+        operationSuccess = (read(clientSocket.clientSocketDescriptor, &clientPasswordLength, sizeof(size_t)) > 0);
+        if (operationSuccess)
+        {
+            clientPassword = new char[clientPasswordLength + 1];
+
+            operationSuccess = (read(clientSocket.clientSocketDescriptor, clientPassword, clientPasswordLength) > 0);
+            clientPassword[clientPasswordLength] = '\0';
+            if (!operationSuccess)
+            {
+                isWhitelistedIP = false;
+                isWhitelistedMAC = false;
+
+                delete clientUsername;
+                delete clientPassword;
+            }
+        }
+        else
+        {
+            isWhitelistedIP = false;
+            isWhitelistedMAC = false;
+
+            delete clientUsername;
+        }
+        
+    }
+
+    bool isAdmin = false;
+
+    if (isWhitelistedIP && isWhitelistedMAC)
+    {
+        vector<pair<string, string>> administratorCredentials;
+
+        Statement * mySQLNormalStatement;
+
+        try
+        {
+            Connection * mySQLConnection = (Connection *)MySQLConnector::mySQLConnection_Get();
+            
+            mySQLNormalStatement = mySQLConnection->createStatement();
+            mySQLResultSet = mySQLNormalStatement->executeQuery(MYSQL_GET_ALL_ADMINISTRATOR_CREDENTIALS);
+            
+            string adminUsername, adminPassword;
+            pair<string, string> administratorCredential;
+
+            while (mySQLResultSet->next())
+            {
+                adminUsername = mySQLResultSet->getString(1);
+                adminPassword = mySQLResultSet->getString(2);
+
+                administratorCredential = pair<string, string>(adminUsername, adminPassword);
+
+                administratorCredentials.push_back(administratorCredential);
+            }
+
+            while (mySQLNormalStatement->getMoreResults())
+                mySQLResultSet = mySQLNormalStatement->getResultSet();
+        }
+        catch (SQLException & mySQLException)
+        {
+            cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+
+            while (mySQLResultSet->next());
+            while (mySQLNormalStatement->getMoreResults())
+                mySQLResultSet = mySQLNormalStatement->getResultSet();
+
+            if (mySQLNormalStatement != nullptr)
+            {
+                mySQLNormalStatement->close();
+                delete mySQLNormalStatement;
+            }
+            if (mySQLResultSet != nullptr)
+            {
+                mySQLResultSet->close();
+                delete mySQLResultSet;
+            }
+        }
+
+        if (mySQLNormalStatement != nullptr)
+        {
+            mySQLNormalStatement->close();
+            delete mySQLNormalStatement;
+        }
+        if (mySQLResultSet != nullptr)
+        {
+            mySQLResultSet->close();
+            delete mySQLResultSet;
+        }
+
+        string clientUsernameString = clientUsername;
+        string clientPasswordString = clientPassword;
+
+        for (auto & administratorCredential : administratorCredentials)
+        {
+            administratorCredential.first = Encryption::SHA256::Encrypt(administratorCredential.first);
+            if (administratorCredential.first == clientUsernameString && administratorCredential.second == clientPasswordString)
+                isAdmin = true;
+        }
+    }
+
+    bool isWhitelistedClient = isWhitelistedIP && isWhitelistedMAC && isAdmin;
 
     for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
             if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
