@@ -2,6 +2,7 @@
 
 #define COMMAND_START_SERVER                "START"
 #define COMMAND_STOP_SERVER                 "STOP"
+#define ERROR_COMMAND_LINE_ARGUMENTS_START  "You must provide a port for the server to bind"
 #define ERROR_NOT_ROOT                      "You must run the program as the root superuser"
 #define ERROR_FAILED_PIPE                   "Failed to create pipe for server communication"
 #define ERROR_FAILED_FORK                   "Failed to create server process"
@@ -24,7 +25,7 @@ class Main
     public:   static bool Initialize(int argumentsCount, char ** argumentsArray);
 
     private:  static bool ExecuteTask(vector<string> argumentsList);
-    private:  static bool StartServer();
+    private:  static bool StartServer(vector<string> argumentsList);
     private:  static bool StopServer();
 
     private:  static void ProgramExit_EventCallback();

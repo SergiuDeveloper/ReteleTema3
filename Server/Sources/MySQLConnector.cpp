@@ -38,7 +38,7 @@ void MySQLConnector::Deinitialize()
     pthread_mutex_destroy(&MySQLConnector::mySQLConnectionMutex);
 }
 
-Connection * MySQLConnector::mySQLConnection_Get()
+const Connection * MySQLConnector::mySQLConnection_Get()
 {
     return MySQLConnector::mySQLConnection;
 }

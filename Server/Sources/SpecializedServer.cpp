@@ -7,7 +7,7 @@ SpecializedServer::SpecializedServer()
 {
 }
 
-SuccessState SpecializedServer::Start()
+SuccessState SpecializedServer::Start(unsigned int serverPort)
 {
     if (this->serverRunning_Get())
         return SuccessState(false, ERROR_SERVER_ALREADY_RUNNING);
@@ -23,7 +23,7 @@ SuccessState SpecializedServer::Start()
     
     pthread_mutex_init(&this->consoleMutex, nullptr);
     
-    successState = Server::Start(HTTP_PORT);
+    successState = Server::Start(serverPort);
 
     if (!successState.isSuccess_Get())
         return successState;
@@ -60,7 +60,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
     try
     {
-        Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+        Connection * mySQLConnection = (Connection *)MySQLConnector::mySQLConnection_Get();
         
         mySQLStatement = mySQLConnection->prepareStatement(MYSQL_IS_WHITELISTED_IP_QUERY);
         mySQLStatement->setString(1, clientSocket.clientIP);
@@ -113,7 +113,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
         try
         {
-            Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+            Connection * mySQLConnection = (Connection *)MySQLConnector::mySQLConnection_Get();
             
             mySQLStatement = mySQLConnection->prepareStatement(MYSQL_GET_MACS_FOR_WHITELISTED_IP_QUERY);
             mySQLStatement->setString(1, clientSocket.clientIP);

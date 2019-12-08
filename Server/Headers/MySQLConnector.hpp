@@ -26,5 +26,5 @@ class MySQLConnector
     private: static Connection * mySQLConnection;
     private: static pthread_mutex_t mySQLConnectionMutex;
 
-    public:  static Connection * mySQLConnection_Get();
+    public:  static const Connection * mySQLConnection_Get();
 };

@@ -62,7 +62,7 @@ class Server
     private:   static void * ClientHandlingThreadFunctionHelper(void * threadParameters);
     private:   void * ClientHandlingThreadFunction(Server::ClientConnectedThreadParameters clientConnectedThreadParameters);
 
-    public:    unsigned int serverPort_Get();
-    public:    string serverPath_Get();
-    public:    bool serverRunning_Get();
+    public:    const unsigned int serverPort_Get();
+    public:    const string serverPath_Get();
+    public:    const bool serverRunning_Get();
 };

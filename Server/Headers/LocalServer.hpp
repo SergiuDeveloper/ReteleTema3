@@ -30,8 +30,6 @@ class LocalServer : public Server
     private: LocalServer();
 
     public:  SuccessState Start();
-    private: SuccessState Start(unsigned int serverPort);
-    private: SuccessState Start(string serverPath);
     public:  SuccessState Stop();
 
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);

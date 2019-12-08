@@ -22,7 +22,7 @@ SuccessState LocalClient::StopServer()
 
     try
     {
-        Connection * mySQLConnection = MySQLConnector::mySQLConnection_Get();
+        Connection * mySQLConnection = (Connection *)MySQLConnector::mySQLConnection_Get();
 
         mySQLStatement = mySQLConnection->createStatement();
         mySQLResultSet = mySQLStatement->executeQuery(MYSQL_GET_LOCAL_SERVER_PATH_QUERY);

@@ -198,7 +198,7 @@ void * Server::ClientHandlingThreadFunction(Server::ClientConnectedThreadParamet
     this->ClientConnected_EventCallback(clientSocket);
 }
 
-unsigned int Server::serverPort_Get()
+const unsigned int Server::serverPort_Get()
 {
     if (this->isLocalServer)
         return INVALID_SERVER_PORT;
@@ -206,7 +206,7 @@ unsigned int Server::serverPort_Get()
     return this->serverPort;
 }
 
-string Server::serverPath_Get()
+const string Server::serverPath_Get()
 {
     if (!this->isLocalServer)
         return INVALID_SERVER_PATH;
@@ -214,7 +214,7 @@ string Server::serverPath_Get()
     return this->serverPath;
 }
 
-bool Server::serverRunning_Get()
+const bool Server::serverRunning_Get()
 {
     return this->serverRunning;
 }

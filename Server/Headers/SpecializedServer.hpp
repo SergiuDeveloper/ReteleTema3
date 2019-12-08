@@ -1,6 +1,5 @@
 #pragma once
 
-#define HTTP_PORT                                                                       80
 #define SUCCESS_CLIENT_CONNECTED(clientIP, clientMAC)                                   ((string)"Client " + clientIP + " : " + clientMAC + " successfully connected!")
 #define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " : " + " is already connected!")
 #define ERROR_CLIENT_NOT_WHITELISTED(clientIP, clientMAC)                               ((string)"Could not connect client " + clientIP + " : " + clientMAC + " to the server, as he is not whitelisted!")
@@ -35,10 +34,8 @@ class SpecializedServer : public Server
 
     private: SpecializedServer();
 
-    public:  SuccessState Start();
-    private: SuccessState Start(string serverPath);
+    public:  SuccessState Start(unsigned int serverPort);
     public:  SuccessState Stop();
-    public:  bool CanStop();
     
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
 

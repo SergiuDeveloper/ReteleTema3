@@ -26,7 +26,7 @@ bool Main::Initialize(int argumentsCount, char ** argumentsArray)
 bool Main::ExecuteTask(vector<string> argumentsList)
 {
     if (argumentsList[0] == COMMAND_START_SERVER)
-        return Main::StartServer();
+        return Main::StartServer(argumentsList);
     if (argumentsList[0] == COMMAND_STOP_SERVER)
         return Main::StopServer();
 
@@ -35,8 +35,16 @@ bool Main::ExecuteTask(vector<string> argumentsList)
     return false;
 }
 
-bool Main::StartServer()
+bool Main::StartServer(vector<string> argumentsList)
 {
+    if (argumentsList.size() < 2)
+    {
+        cout<<ERROR_COMMAND_LINE_ARGUMENTS_START<<endl;
+        return false;
+    }
+
+    unsigned int serverPort = stoi(argumentsList[1]);
+
     bool operationSuccess;
 
     int serverPipe[2];
@@ -65,7 +73,7 @@ bool Main::StartServer()
 
             SpecializedServer specializedServer = * (SpecializedServer::GetSingletonInstance());
 
-            SuccessState successState = specializedServer.Start();
+            SuccessState successState = specializedServer.Start(serverPort);
             
             bool successStateResult = successState.isSuccess_Get();
             write(serverPipe[PIPE_WRITE_INDEX], &successStateResult, sizeof(successStateResult));
