@@ -1,11 +1,11 @@
 #pragma once
 
-#define SUCCESS_CONNECTION_ESTABLISHED                  "Connection to the server successfully established"
-#define SUCCESS_CONNECTION_CLOSED                       "Connection to the server successfully closed"
-#define ERROR_CONNECTION_ALREADY_ESTABLISHED            "There is already one instance of the client connected to the server"
-#define ERROR_NO_CONNECTION_ESTABLISHED                 "There are no instances of the client connected to the server"
-#define ERROR_COULD_NOT_INITIALIZE_SOCKET               "Could not create a socket descriptor for the client"
-#define ERROR_CONNECTION_FAILED(serverIP, serverPort)   ((string)"Could not connect to " + serverIP + ":" + to_string(serverPort));
+#define SUCCESS_CONNECTION_ESTABLISHED(serverIP, serverPort)    ((string)"Successfully connected to " + serverIP + ":" + to_string(serverPort)"
+#define SUCCESS_CONNECTION_CLOSED(serverIP, serverPort)         ((string)"Failed to connect to " + serverIP + ":" + to_string(serverPort))
+#define ERROR_CONNECTION_ALREADY_ESTABLISHED                    "There is already one instance of the client connected to the server"
+#define ERROR_NO_CONNECTION_ESTABLISHED                         "There are no instances of the client connected to the server"
+#define ERROR_COULD_NOT_INITIALIZE_SOCKET                       "Could not create a socket descriptor for the client"
+#define ERROR_CONNECTION_FAILED(serverIP, serverPort)           ((string)"Could not connect to " + serverIP + ":" + to_string(serverPort));
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
