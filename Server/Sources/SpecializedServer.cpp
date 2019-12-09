@@ -367,6 +367,108 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     write(clientSocket.clientSocketDescriptor, successMessage.c_str(), successMessageLength);
 
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+
+    int readResult;
+    bool clientConnected = true;
+    Encryption::Types::CharArray encryptedClientRequest;
+    string commandExecutionPath = DEFAULT_EXECUTION_PATH;
+    while (clientConnected)
+    {    
+        readResult = (read(clientSocket.clientSocketDescriptor, &encryptedClientRequest.charArrayLength, sizeof(size_t)));
+
+        if (readResult == 0)
+        {
+            this->ClientDisconnected_EventCallback(clientSocket);
+            return;
+        }
+        else if (readResult < 0)
+            continue;
+
+        encryptedClientRequest.charArray = new char[encryptedClientRequest.charArrayLength];
+        readResult = (read(clientSocket.clientSocketDescriptor, encryptedClientRequest.charArray, encryptedClientRequest.charArrayLength));
+
+        if (readResult == 0)
+            this->ClientDisconnected_EventCallback(clientSocket);
+        else if (readResult > 0)
+            this->ClientRequest_EventCallback(clientSocket, encryptedClientRequest, commandExecutionPath);
+    }
+
+    this->ClientDisconnected_EventCallback(clientSocket);
+}
+
+void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, Encryption::Types::CharArray messageToProcess, string & commandExecutionPath)
+{
+    string clientRequest = Encryption::Algorithms::Vigenere::Decrypt(messageToProcess, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+    cout<<SUCCESS_RECEIVED_REQUEST(clientSocket.clientIP, clientSocket.clientMAC, clientRequest)<<endl;
+
+    clientRequest = "cd " + commandExecutionPath + " && echo \"$(whoami)@$(hostname)\" && pwd && ";
+
+    bool operationSuccess;
+
+    FILE * commandLinePipe;
+    operationSuccess = ((commandLinePipe = popen(clientRequest.c_str(), "r")) != nullptr);
+
+    if (!operationSuccess)
+    {
+        string messageFailure = MESSAGE_FAILURE;
+        Encryption::Types::CharArray messageFailureEncrypted = Encryption::Algorithms::Vigenere::Encrypt(messageFailure, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+            VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+        write(clientSocket.clientSocketDescriptor, &messageFailureEncrypted.charArrayLength, sizeof(size_t));
+        write(clientSocket.clientSocketDescriptor, messageFailureEncrypted.charArray, messageFailureEncrypted.charArrayLength);
+
+        cout<<ERROR_EXECUTE_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+        return;
+    }
+
+    bool currentDirectoryLog = true;
+
+    string commandOutput = "";
+    size_t outputCharsToRead = SOCKET_CHUNK_SIZE - VIGENERE_RANDOM_PREFIX_LENGTH - VIGENERE_RANDOM_SUFFIX_LENGTH;
+    char * commandOutputLine = new char[outputCharsToRead];
+    while (fgets(commandOutputLine, outputCharsToRead, commandLinePipe))
+    {
+        commandOutput += (string)commandOutputLine;
+
+        if (currentDirectoryLog)
+        {
+            commandExecutionPath = (string)commandOutputLine;
+
+            currentDirectoryLog = false;
+        }
+    }
+    
+    pclose(commandLinePipe);
+
+    commandOutput.resize(outputCharsToRead);
+
+    Encryption::Types::CharArray commandOutputEncrypted = Encryption::Algorithms::Vigenere::Encrypt(commandOutput, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+        VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+    write(clientSocket.clientSocketDescriptor, &commandOutputEncrypted.charArrayLength, sizeof(size_t));
+    write(clientSocket.clientSocketDescriptor, commandOutputEncrypted.charArray, commandOutputEncrypted.charArrayLength);
+
+    delete commandOutputLine;
+
+    cout<<SUCCESS_EXECUTED_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+}
+
+void SpecializedServer::ClientDisconnected_EventCallback(ClientSocket clientSocket)
+{
+    for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
+        if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
+        {
+            while (!pthread_mutex_trylock(&this->clientSocketsMutex));
+            close(clientSocket.clientSocketDescriptor);
+                    
+            this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
+            this->clientSockets.pop_back();
+            pthread_mutex_unlock(&this->clientSocketsMutex);
+
+            cout<<SUCCESS_CLIENT_DISCONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+            return;
+        }
 }
 
 const SpecializedServer * SpecializedServer::GetSingletonInstance()

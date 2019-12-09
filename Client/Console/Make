@@ -3,4 +3,4 @@ g++  								\
 Sources/Client.cpp Sources/Encryption.cpp 			\
 Sources/SuccessState.cpp main.cpp				\
 -o Bin/Client							\
--lcrypto
+-lcrypto -lncurses

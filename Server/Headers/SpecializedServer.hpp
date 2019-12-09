@@ -1,14 +1,21 @@
 #pragma once
 
-#define SUCCESS_CLIENT_CONNECTED(clientIP, clientMAC)                                   ((string)"Client " + clientIP + " : " + clientMAC + " successfully connected!")
-#define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " : " + " is already connected!")
-#define ERROR_CLIENT_NOT_WHITELISTED(clientIP)                                          ((string)"Could not connect client " + clientIP + " to the server, as he is not whitelisted!")
+#define SUCCESS_CLIENT_CONNECTED(clientIP, clientMAC)                                   ((string)"Client " + clientIP + " : " + clientMAC + " successfully connected")
+#define SUCCESS_CLIENT_DISCONNECTED(clientIP, clientMAC)                                ((string)"Client " + clientIP + " : " + clientMAC + " successfully disconnected")
+#define SUCCESS_RECEIVED_REQUEST(clientIP, clientMAC, requestString)                    ((string)"Received request from " + clientIP + " : " + clientMAC + "\"" + requestString + "\"")
+#define SUCCESS_EXECUTED_COMMAND(clientIP, clientMAC)                                   ((string)"Successfully executed request received from " + clientIP + " : " + clientMAC)
+#define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " : " + " is already connected")
+#define ERROR_CLIENT_NOT_WHITELISTED(clientIP)                                          ((string)"Could not connect client " + clientIP + " to the server, as he is not whitelisted")
+#define ERROR_EXECUTE_COMMAND(clientIP, clientMAC)                                      ((string)"Failed to execute command received from " + clientIP + clientMAC)
 #define MYSQL_CONNECTION_STRING(mySQLServerProtocol, mySQLServerIP, mySQLServerPort)    ((string)mySQLServerProtocol + "://" + mySQLServerIP + ":" + to_string(mySQLServerPort))
 #define MYSQL_IS_WHITELISTED_IP_QUERY                                                   ((string)"CALL sp_IsWhitelistedIP(?);")
 #define MYSQL_GET_MACS_FOR_WHITELISTED_IP_QUERY                                         ((string)"CALL sp_GetMACsForWhitelistedIP(?);")
 #define MYSQL_GET_ALL_ADMINISTRATOR_CREDENTIALS                                         ((string)"CALL sp_GetAllAdministratorCredentials();")
 #define MESSAGE_SUCCESS                                                                 "SUCCESS"
-#define VIGENERE_KEY(serverIP, serverPort, clientMAC)                                   ((string)serverIP + to_string(serverPort) + clientMAC)
+#define MESSAGE_FAILURE                                                                 "FAILURE"
+#define SOCKET_CHUNK_SIZE                                                               4096
+#define DEFAULT_EXECUTION_PATH                                                          "./"
+#define VIGENERE_KEY(serverPort, clientMAC)                                             (to_string(serverPort) + clientMAC)
 #define VIGENERE_RANDOM_PREFIX_LENGTH                                                   32
 #define VIGENERE_RANDOM_SUFFIX_LENGTH                                                   32
 
@@ -42,7 +49,8 @@ class SpecializedServer : public Server
     public:  SuccessState Stop();
     
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
-    private: void ClientRequest_Eventcallback(Encryption::Types::CharArray messageToProcess);
+    private: void ClientRequest_EventCallback(ClientSocket clientSocket, Encryption::Types::CharArray messageToProcess, string & commandExecutionPath);
+    private: void ClientDisconnected_EventCallback(ClientSocket clientSocket);
 
     private: LocalServer * localServer;
     private: pthread_mutex_t consoleMutex;

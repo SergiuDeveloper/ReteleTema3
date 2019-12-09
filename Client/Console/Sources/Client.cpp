@@ -114,7 +114,11 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
 
     this->isConnected = true;
 
-    return SuccessState(true, SUCCESS_CONNECTION_ESTABLISHED(this->serverIP, this->serverPort));
+    cout<<SUCCESS_CONNECTION_ESTABLISHED(this->serverIP, this->serverPort)<<endl;
+
+    this->ClientLifecycle();
+
+    return SuccessState(true, SUCCESS_CLIENT_LIFECYCLE);
 }
 
 SuccessState Client::Disconnect()
@@ -129,6 +133,82 @@ SuccessState Client::Disconnect()
     return SuccessState(true, SUCCESS_CONNECTION_CLOSED(this->serverIP, this->serverPort));
 }
 
+void Client::ClientLifecycle()
+{
+    int readResult;
+
+    while (this->isConnected)
+    {
+        Encryption::Types::CharArray encryptedResult;
+
+        readResult = (read(this->serverSocket, &encryptedResult.charArrayLength, sizeof(size_t)));
+        if (readResult <= 0)
+        {
+            cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+            if (readResult == 0)
+            {
+                this->Disconnect();
+                return;
+            }
+            continue;
+        }
+
+        encryptedResult.charArray = new char[encryptedResult.charArrayLength];
+
+        readResult = (read(this->serverSocket, encryptedResult.charArray, encryptedResult.charArrayLength));
+        if (readResult <= 0)
+        {
+            cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+            if (readResult == 0)
+            {
+                this->Disconnect();
+                return;
+            }
+            continue;
+        }
+
+        string receivedResult = Encryption::Algorithms::Vigenere::Decrypt(encryptedResult, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+        size_t newlinePosition = receivedResult.find('\n');
+        string currentUser = receivedResult.substr(0, newlinePosition);
+        receivedResult = receivedResult.erase(0, newlinePosition + 1);
+
+        if (has_colors())
+        {
+            use_default_colors();
+            start_color();
+            init_pair(1, COLOR_GREEN, -1);
+
+            printw(currentUser.c_str());
+        }
+        else
+            cout<<currentUser;
+
+        cout<<':';
+
+        newlinePosition = receivedResult.find('\n');
+        string commandExecutionLocation = receivedResult.substr(0, newlinePosition);
+        receivedResult = receivedResult.erase(0, newlinePosition + 1);
+
+        if (has_colors())
+        {
+            use_default_colors();
+            start_color();
+            init_pair(1, COLOR_BLUE, -1);
+
+            printw(commandExecutionLocation.c_str());
+        }
+        else
+            cout<<commandExecutionLocation;
+
+        cout<<'$'<<endl;
+
+        cout<<receivedResult;
+    }
+}
+
 SuccessState Client::GetCommandToSend()
 {
     if (!this->isConnected)
@@ -137,7 +217,7 @@ SuccessState Client::GetCommandToSend()
     string commandToSend;
     getline(cin, commandToSend);
 
-    Encryption::Types::CharArray encrpytedCommandToSend = Encryption::Algorithms::Vigenere::Encrypt(commandToSend, VIGENERE_KEY(this->serverIP, this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+    Encryption::Types::CharArray encrpytedCommandToSend = Encryption::Algorithms::Vigenere::Encrypt(commandToSend, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
     bool operationSuccess;
 
@@ -180,7 +260,7 @@ SuccessState Client::GetCommandToSend()
 
     Encryption::Types::CharArray commandResultEncryptedCharArray(commandResultEncrypted, commandResultEncryptedLength); 
 
-    string commandResult = Encryption::Algorithms::Vigenere::Decrypt(commandResultEncryptedCharArray, VIGENERE_KEY(this->serverIP, this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+    string commandResult = Encryption::Algorithms::Vigenere::Decrypt(commandResultEncryptedCharArray, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
         VIGENERE_RANDOM_SUFFIX_LENGTH);
 
     delete commandResultEncrypted;
