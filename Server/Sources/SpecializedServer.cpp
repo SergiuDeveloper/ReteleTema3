@@ -172,6 +172,14 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
             if (dbClientMACEncrypted == clientSocket.clientMAC)
             {
+                decryptedClientMAC =    dbClientMAC[0] + dbClientMAC[1] + ':' +
+                                        dbClientMAC[2] + dbClientMAC[3] + ':' +
+                                        dbClientMAC[4] + dbClientMAC[5] + ':' +
+                                        dbClientMAC[6] + dbClientMAC[7] + ':' +
+                                        dbClientMAC[8] + dbClientMAC[9] + ':' +
+                                        dbClientMAC[10] + dbClientMAC[11];
+                clientSocket.clientMAC = decryptedClientMAC;
+
                 isWhitelistedMAC = true;
                 break;
             }
@@ -327,7 +335,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
                     pthread_mutex_unlock(&this->clientSocketsMutex);
 
-                    cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+                    cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
                     return;
                 }
 
@@ -351,6 +359,12 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
             }
             else
                 foundClient = true;
+
+    string successMessage = MESSAGE_SUCCESS;
+    size_t successMessageLength = successMessage.size();
+
+    write(clientSocket.clientSocketDescriptor, &successMessageLength, sizeof(size_t));
+    write(clientSocket.clientSocketDescriptor, successMessage.c_str(), successMessageLength);
 
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
 }

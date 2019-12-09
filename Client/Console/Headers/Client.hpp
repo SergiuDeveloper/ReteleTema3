@@ -9,6 +9,7 @@
 #define ERROR_NO_CONNECTION_ESTABLISHED                         "There are no instances of the client connected to the server"
 #define ERROR_COULD_NOT_INITIALIZE_SOCKET                       "Could not create a socket descriptor for the client"
 #define ERROR_CONNECTION_FAILED(serverIP, serverPort)           ((string)"Could not connect to " + serverIP + ":" + to_string(serverPort))
+#define MESSAGE_SUCCESS                                         "SUCCESS"
 
 #include <sys/socket.h>
 #include <sys/unistd.h>

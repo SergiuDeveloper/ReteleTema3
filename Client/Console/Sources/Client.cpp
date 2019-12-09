@@ -5,7 +5,7 @@ Client * Client::singletonInstance;
 Client::Client()
 {
 }
-
+#include <iostream>
 SuccessState Client::Connect(string serverIP, unsigned int serverPort)
 {
     if (this->isConnected)
@@ -42,7 +42,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     size_t macAddressEncryptedLength = macAddressEncrypted.size();
     
     operationSuccess = false;
-
+    
     operationSuccess = (write(serverSocket, &macAddressEncryptedLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
     {
@@ -87,8 +87,25 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
-    bool testConnectionVariable;
-    operationSuccess = read(serverSocket, &testConnectionVariable, sizeof(bool));
+    size_t serverResponseLength;
+    operationSuccess = read(serverSocket, &serverResponseLength, sizeof(size_t) > 0);
+    if (!operationSuccess)
+    {
+        close(serverSocket);
+        return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+    }
+
+    char * serverResponse = new char[serverResponseLength + 1];
+    operationSuccess = read(serverSocket, serverResponse, serverResponseLength);
+    serverResponse[serverResponseLength] = '\0';
+    if (!operationSuccess)
+    {
+        close(serverSocket);
+        return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+    }
+
+    string successMessageEncrypted = Encryption::SHA256::Encrypt(MESSAGE_SUCCESS);
+    if (successMessageEncrypted != (string)serverResponse)
     if (!operationSuccess)
     {
         close(serverSocket);
@@ -126,7 +143,7 @@ Client::AdministratorCredentials Client::GetAdministratorCredentials()
 
 string Client::GetMacAddress()
 {
-    const string macAddressFormat = "%.2hhX:%.2hhX:%.2hhX:%.2hhX:%.2hhX:%.2hhX";
+    const string macAddressFormat = "%.2hhX%.2hhX%.2hhX%.2hhX%.2hhX%.2hhX";
     const string macInterfaceToken = "eth0";
 
 	struct ifreq macInterface;
