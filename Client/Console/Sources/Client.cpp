@@ -5,7 +5,7 @@ Client * Client::singletonInstance;
 Client::Client()
 {
 }
-#include <iostream>
+
 SuccessState Client::Connect(string serverIP, unsigned int serverPort)
 {
     if (this->isConnected)
@@ -34,11 +34,11 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     if (!operationSuccess)
         return SuccessState(false, ERROR_CONNECTION_FAILED(this->serverIP, this->serverPort));
 
-    string macAddress = Client::GetMacAddress();
-    for (auto & macAddressIterator : macAddress)
+    this->clientMAC = Client::GetMacAddress();
+    for (auto & macAddressIterator : this->clientMAC)
         macAddressIterator = toupper(macAddressIterator);
 
-    string macAddressEncrypted = Encryption::SHA256::Encrypt(macAddress);
+    string macAddressEncrypted = Encryption::SHA256::Encrypt(this->clientMAC);
     size_t macAddressEncryptedLength = macAddressEncrypted.size();
     
     operationSuccess = false;
@@ -129,6 +129,58 @@ SuccessState Client::Disconnect()
     return SuccessState(true, SUCCESS_CONNECTION_CLOSED(this->serverIP, this->serverPort));
 }
 
+SuccessState Client::GetCommandToSend()
+{
+    if (!this->isConnected)
+        return SuccessState(false, ERROR_NO_CONNECTION_ESTABLISHED);
+
+    string commandToSend;
+    getline(cin, commandToSend);
+
+    char * encrpytedCommandToSend = Encryption::Vigenere::Encrypt(commandToSend, VIGENERE_KEY_CLIENT(), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+    size_t encrpytedCommandToSendLength = 
+
+    bool operationSuccess;
+
+    operationSuccess = (write(this->serverSocket, &, sizeof(size_t)) > 0);
+    if (!operationSuccess)
+        return SuccessState(false, ERROR_SOCKET_WRITE);
+    operationSuccess = (write(this->serverSocket, , ) > 0);
+    if (!operationSuccess)
+        return SuccessState(false, ERROR_SOCKET_WRITE);
+
+    int readReturnValue;
+
+    size_t commandResultEncryptedLength;
+    readReturnValue = read(this->serverSocket, &commandResultEncryptedLength, sizeof(size_t));
+    if (readReturnValue <= 0)
+    {
+        if (readReturnValue == 0)
+        {
+            this->Disconnect();
+            return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+        }
+
+        return SuccessState(false, ERROR_SOCKET_READ);
+    }
+
+    char * commandResultEncrypted = new char[commandResultEncryptedLength + 1];
+    readReturnValue = read(this->serverSocket, commandResultEncrypted, commandResultEncryptedLength);
+    if (readReturnValue <= 0)
+    {
+        if (readReturnValue == 0)
+        {
+            this->Disconnect();
+            return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+        }
+
+        return SuccessState(false, ERROR_SOCKET_READ);
+    }
+    commandResultEncrypted[commandResultEncryptedLength] = '\0';
+
+
+}
+
 Client::AdministratorCredentials Client::GetAdministratorCredentials()
 {
     string adminName, adminPassword;
@@ -171,6 +223,16 @@ const string Client::serverIP_Get()
 const unsigned int Client::serverPort_Get()
 {
     return this->serverPort;
+}
+
+const string Client::clientIP_Get()
+{
+    return this->clientIP;
+}
+
+const string Client::clientMAC_Get()
+{
+    return this->clientMAC;
 }
 
 const bool Client::isConnected_Get()
