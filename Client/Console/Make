@@ -1,6 +1,6 @@
 g++  								\
 -O3 								\
 Sources/Client.cpp Sources/Encryption.cpp 			\
-Sources/SuccessState.cpp main.cpp				\
+Sources/SuccessState.cpp Sources/Main.cpp  main.cpp		\
 -o Bin/Client							\
 -lcrypto -lncurses

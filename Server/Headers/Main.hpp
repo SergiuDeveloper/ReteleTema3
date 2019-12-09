@@ -30,5 +30,5 @@ class Main
 
     private:  static void ProgramExit_EventCallback();
 
-    private: static vector<string> CastCommandLineArguments(int argumentsCount, char ** argumentsArray, bool ignoreApplicationPath);
+    private:  static vector<string> CastCommandLineArguments(int argumentsCount, char ** argumentsArray, bool ignoreApplicationPath);
 };
