@@ -12,8 +12,7 @@
 #define ERROR_SOCKET_WRITE                                      "Socket write error"
 #define ERROR_SOCKET_READ                                       "Socket read error"
 #define MESSAGE_SUCCESS                                         "SUCCESS"
-#define VIGENERE_KEY_SERVER(serverIP, serverPort)               ((string)serverIP + to_string(serverPort))
-#define VIGENERE_KEY_CLIENT(clientIP, clientMAC)                ((string)clientIP + clientMAC)
+#define VIGENERE_KEY(serverIP, serverPort, clientMAC)           ((string)serverIP + to_string(serverPort) + clientMAC)
 #define VIGENERE_RANDOM_PREFIX_LENGTH                           32
 #define VIGENERE_RANDOM_SUFFIX_LENGTH                           32
 
@@ -46,13 +45,11 @@ class Client
     private:   int serverSocket;
     private:   string serverIP;
     private:   unsigned int serverPort;
-    private:   string clientIP;
     private:   string clientMAC;
     private:   bool isConnected;
 
     public:    const string serverIP_Get();
     public:    const unsigned int serverPort_Get();
-    public:    const string clientIP_Get();
     public:    const string clientMAC_Get();
     public:    const bool isConnected_Get();
 

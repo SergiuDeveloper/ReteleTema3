@@ -85,7 +85,7 @@ SuccessState LocalClient::StopServer()
     if (!operationSuccess)
         return SuccessState(false, ERROR_LOCAL_SERVER_CONNECTION);
 
-    string encryptedStopServerCommandString = Encryption::SHA256::Encrypt(COMMAND_STOP_SERVER);
+    string encryptedStopServerCommandString = Encryption::Algorithms::SHA256::Encrypt(COMMAND_STOP_SERVER);
     char * encryptedStopServerCommand = new char[encryptedStopServerCommandString.size() + 1];
     strcpy(encryptedStopServerCommand, encryptedStopServerCommandString.c_str());
     encryptedStopServerCommand[encryptedStopServerCommandString.size()] = '\0';
@@ -96,10 +96,10 @@ SuccessState LocalClient::StopServer()
 
     string commandSuccess = COMMAND_SUCCESS;
     string commandFailure = COMMAND_FAILURE;
-    std::vector<Encryption::EncryptedValuePair> encryptedValuePairs =
+    std::vector<Encryption::Types::EncryptedValuePair> encryptedValuePairs =
     {
-        Encryption::EncryptedValuePair(commandSuccess, Encryption::SHA256::Encrypt(commandSuccess)),
-        Encryption::EncryptedValuePair(commandFailure, Encryption::SHA256::Encrypt(commandFailure))
+        Encryption::Types::EncryptedValuePair(commandSuccess, Encryption::Algorithms::SHA256::Encrypt(commandSuccess)),
+        Encryption::Types::EncryptedValuePair(commandFailure, Encryption::Algorithms::SHA256::Encrypt(commandFailure))
     };
 
     struct pollfd pollDescriptor;
@@ -144,7 +144,7 @@ SuccessState LocalClient::StopServer()
         }
         commandSuccessStatusEncrypted[commandSuccessStatusEncrpytedLength] = '\0';
     
-        commandSuccessStatus = Encryption::SHA256::Decrypt(commandSuccessStatusEncrypted, encryptedValuePairs);
+        commandSuccessStatus = Encryption::Algorithms::SHA256::Decrypt(commandSuccessStatusEncrypted, encryptedValuePairs);
 
         delete commandSuccessStatusEncrypted;
     }

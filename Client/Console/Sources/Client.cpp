@@ -38,7 +38,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     for (auto & macAddressIterator : this->clientMAC)
         macAddressIterator = toupper(macAddressIterator);
 
-    string macAddressEncrypted = Encryption::SHA256::Encrypt(this->clientMAC);
+    string macAddressEncrypted = Encryption::Algorithms::SHA256::Encrypt(this->clientMAC);
     size_t macAddressEncryptedLength = macAddressEncrypted.size();
     
     operationSuccess = false;
@@ -56,8 +56,8 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
-    string adminNameEncrypted = Encryption::SHA256::Encrypt(administratorCredentials.adminName);
-    string adminPasswordEncrypted = Encryption::SHA256::Encrypt(administratorCredentials.adminPassword);
+    string adminNameEncrypted = Encryption::Algorithms::SHA256::Encrypt(administratorCredentials.adminName);
+    string adminPasswordEncrypted = Encryption::Algorithms::SHA256::Encrypt(administratorCredentials.adminPassword);
     size_t adminNameEncryptedLength = adminNameEncrypted.size();
     size_t adminPasswordEncryptedLength = adminPasswordEncrypted.size();
 
@@ -104,7 +104,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
-    string successMessageEncrypted = Encryption::SHA256::Encrypt(MESSAGE_SUCCESS);
+    string successMessageEncrypted = Encryption::Algorithms::SHA256::Encrypt(MESSAGE_SUCCESS);
     if (successMessageEncrypted != (string)serverResponse)
     if (!operationSuccess)
     {
@@ -137,15 +137,14 @@ SuccessState Client::GetCommandToSend()
     string commandToSend;
     getline(cin, commandToSend);
 
-    char * encrpytedCommandToSend = Encryption::Vigenere::Encrypt(commandToSend, VIGENERE_KEY_CLIENT(), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
-    size_t encrpytedCommandToSendLength = 
+    Encryption::Types::CharArray encrpytedCommandToSend = Encryption::Algorithms::Vigenere::Encrypt(commandToSend, VIGENERE_KEY(this->serverIP, this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
     bool operationSuccess;
 
-    operationSuccess = (write(this->serverSocket, &, sizeof(size_t)) > 0);
+    operationSuccess = (write(this->serverSocket, &encrpytedCommandToSend.charArrayLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
         return SuccessState(false, ERROR_SOCKET_WRITE);
-    operationSuccess = (write(this->serverSocket, , ) > 0);
+    operationSuccess = (write(this->serverSocket, encrpytedCommandToSend.charArray, encrpytedCommandToSend.charArrayLength) > 0);
     if (!operationSuccess)
         return SuccessState(false, ERROR_SOCKET_WRITE);
 
@@ -168,6 +167,8 @@ SuccessState Client::GetCommandToSend()
     readReturnValue = read(this->serverSocket, commandResultEncrypted, commandResultEncryptedLength);
     if (readReturnValue <= 0)
     {
+        delete commandResultEncrypted;
+
         if (readReturnValue == 0)
         {
             this->Disconnect();
@@ -176,9 +177,15 @@ SuccessState Client::GetCommandToSend()
 
         return SuccessState(false, ERROR_SOCKET_READ);
     }
-    commandResultEncrypted[commandResultEncryptedLength] = '\0';
 
+    Encryption::Types::CharArray commandResultEncryptedCharArray(commandResultEncrypted, commandResultEncryptedLength); 
 
+    string commandResult = Encryption::Algorithms::Vigenere::Decrypt(commandResultEncryptedCharArray, VIGENERE_KEY(this->serverIP, this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+        VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+    delete commandResultEncrypted;
+
+    return SuccessState(true, commandResult);
 }
 
 Client::AdministratorCredentials Client::GetAdministratorCredentials()
@@ -223,11 +230,6 @@ const string Client::serverIP_Get()
 const unsigned int Client::serverPort_Get()
 {
     return this->serverPort;
-}
-
-const string Client::clientIP_Get()
-{
-    return this->clientIP;
 }
 
 const string Client::clientMAC_Get()

@@ -1,5 +1,6 @@
 #include <iostream>
 #include "Headers/Client.hpp"
+#include "Headers/Encryption.hpp"
 
 using namespace std;
 

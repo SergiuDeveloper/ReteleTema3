@@ -168,7 +168,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
             for (auto & dbClientMACIterator : dbClientMAC)
                 dbClientMACIterator = toupper(dbClientMACIterator);
                 
-            dbClientMACEncrypted = Encryption::SHA256::Encrypt(dbClientMAC);
+            dbClientMACEncrypted = Encryption::Algorithms::SHA256::Encrypt(dbClientMAC);
 
             if (dbClientMACEncrypted == clientSocket.clientMAC)
             {
@@ -311,7 +311,7 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
         for (auto & administratorCredential : administratorCredentials)
         {
-            administratorCredential.first = Encryption::SHA256::Encrypt(administratorCredential.first);
+            administratorCredential.first = Encryption::Algorithms::SHA256::Encrypt(administratorCredential.first);
             if (administratorCredential.first == clientUsernameString && administratorCredential.second == clientPasswordString)
                 isAdmin = true;
         }

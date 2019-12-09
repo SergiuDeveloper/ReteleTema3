@@ -8,6 +8,9 @@
 #define MYSQL_GET_MACS_FOR_WHITELISTED_IP_QUERY                                         ((string)"CALL sp_GetMACsForWhitelistedIP(?);")
 #define MYSQL_GET_ALL_ADMINISTRATOR_CREDENTIALS                                         ((string)"CALL sp_GetAllAdministratorCredentials();")
 #define MESSAGE_SUCCESS                                                                 "SUCCESS"
+#define VIGENERE_KEY(serverIP, serverPort, clientMAC)                                   ((string)serverIP + to_string(serverPort) + clientMAC)
+#define VIGENERE_RANDOM_PREFIX_LENGTH                                                   32
+#define VIGENERE_RANDOM_SUFFIX_LENGTH                                                   32
 
 #include <mysql_connection.h>
 #include <cppconn/statement.h>
@@ -17,6 +20,7 @@
 #include <iostream>
 #include <string>
 #include "Server.hpp"
+#include "Encryption.hpp"
 #include "LocalServer.hpp"
 #include "MySQLConnector.hpp"
 #include "ClientSocket.hpp"
@@ -38,6 +42,7 @@ class SpecializedServer : public Server
     public:  SuccessState Stop();
     
     private: void ClientConnected_EventCallback(ClientSocket clientSocket);
+    private: void ClientRequest_Eventcallback(Encryption::Types::CharArray messageToProcess);
 
     private: LocalServer * localServer;
     private: pthread_mutex_t consoleMutex;

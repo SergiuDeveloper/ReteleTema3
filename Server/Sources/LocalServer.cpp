@@ -60,12 +60,12 @@ void LocalServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     encryptedCommand[encryptedCommandLength] = '\0';
     
     string commandStopServer = COMMAND_STOP_SERVER;
-    std::vector<Encryption::EncryptedValuePair> encryptedValuePairs =
+    vector<Encryption::Types::EncryptedValuePair> encryptedValuePairs =
     {
-        Encryption::EncryptedValuePair(commandStopServer, Encryption::SHA256::Encrypt(commandStopServer))
+        Encryption::Types::EncryptedValuePair(commandStopServer, Encryption::Algorithms::SHA256::Encrypt(commandStopServer))
     };
     
-    string receivedCommand = Encryption::SHA256::Decrypt(encryptedCommand, encryptedValuePairs);
+    string receivedCommand = Encryption::Algorithms::SHA256::Decrypt(encryptedCommand, encryptedValuePairs);
     delete encryptedCommand;
     
     bool successfullyStoppedServer = false;
@@ -78,7 +78,7 @@ void LocalServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     }
     
     string commandToSend = (successfullyStoppedServer ? COMMAND_SUCCESS : COMMAND_FAILURE); 
-    string encryptedCommandToSendString = Encryption::SHA256::Encrypt(commandToSend);
+    string encryptedCommandToSendString = Encryption::Algorithms::SHA256::Encrypt(commandToSend);
     char * encryptedCommandToSend = new char[encryptedCommandToSendString.size() + 1];
     strcpy(encryptedCommandToSend, encryptedCommandToSendString.c_str());
     encryptedCommandToSend[encryptedCommandToSendString.size()] = '\0';
