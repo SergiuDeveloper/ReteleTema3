@@ -43,16 +43,16 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     
     operationSuccess = false;
     
-    operationSuccess = (write(serverSocket, &macAddressEncryptedLength, sizeof(size_t)) > 0);
+    operationSuccess = (write(this->serverSocket, &macAddressEncryptedLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
-    operationSuccess = (write(serverSocket, macAddressEncrypted.c_str(), macAddressEncryptedLength) > 0);
+    operationSuccess = (write(this->serverSocket, macAddressEncrypted.c_str(), macAddressEncryptedLength) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
@@ -61,46 +61,46 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     size_t adminNameEncryptedLength = adminNameEncrypted.size();
     size_t adminPasswordEncryptedLength = adminPasswordEncrypted.size();
 
-    operationSuccess = (write(serverSocket, &adminNameEncryptedLength, sizeof(size_t)) > 0);
+    operationSuccess = (write(this->serverSocket, &adminNameEncryptedLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
-    operationSuccess = (write(serverSocket, adminNameEncrypted.c_str(), adminNameEncryptedLength) > 0);
+    operationSuccess = (write(this->serverSocket, adminNameEncrypted.c_str(), adminNameEncryptedLength) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
-    operationSuccess = (write(serverSocket, &adminPasswordEncryptedLength, sizeof(size_t)) > 0);
+    operationSuccess = (write(this->serverSocket, &adminPasswordEncryptedLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
-    operationSuccess = (write(serverSocket, adminPasswordEncrypted.c_str(), adminPasswordEncryptedLength) > 0);
+    operationSuccess = (write(this->serverSocket, adminPasswordEncrypted.c_str(), adminPasswordEncryptedLength) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
     size_t serverResponseLength;
-    operationSuccess = read(serverSocket, &serverResponseLength, sizeof(size_t) > 0);
+    operationSuccess = read(this->serverSocket, &serverResponseLength, sizeof(size_t) > 0);
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
     char * serverResponse = new char[serverResponseLength + 1];
-    operationSuccess = read(serverSocket, serverResponse, serverResponseLength);
+    operationSuccess = read(this->serverSocket, serverResponse, serverResponseLength);
     serverResponse[serverResponseLength] = '\0';
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
@@ -108,7 +108,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     if (successMessageEncrypted != (string)serverResponse)
     if (!operationSuccess)
     {
-        close(serverSocket);
+        close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
 
@@ -135,10 +135,63 @@ SuccessState Client::Disconnect()
 
 void Client::ClientLifecycle()
 {
-    int readResult;
+    string quitCommand = COMMAND_QUIT_CLIENT;
+    string helpCommand = COMMAND_HELP;
 
+    int readResult;
+    SuccessState successState(false, INVALID_STRING);
+    string requestCommand;
+    Encryption::Types::CharArray requestCommandCharArray;
+    bool isQuitCommand;
+    bool isHelpCommand;
     while (this->isConnected)
     {
+        successState = this->GetCommandToSend();
+
+        if (successState.successStateMessage_Get() == INVALID_STRING)
+            continue;
+
+        if (!successState.isSuccess_Get())
+        {
+            cout<<successState.successStateMessage_Get();
+            continue;
+        }
+
+        requestCommand = successState.successStateMessage_Get();
+
+        if (requestCommand.size() == quitCommand.size())
+        {
+            isQuitCommand = true;
+            for (size_t requestCommandIterator = 0; requestCommandIterator < requestCommand.size(); ++requestCommandIterator)
+                if (requestCommand[requestCommandIterator] != quitCommand[requestCommandIterator])
+                    isQuitCommand = false;
+
+            if (isQuitCommand)
+            {
+                this->Disconnect();
+                return;
+            }
+        }
+
+        if (requestCommand.size() == helpCommand.size())
+        {
+            isHelpCommand = true;
+             for (size_t requestCommandIterator = 0; requestCommandIterator < requestCommand.size(); ++requestCommandIterator)
+                if (requestCommand[requestCommandIterator] != helpCommand[requestCommandIterator])
+                    isHelpCommand = false;
+
+            if (isHelpCommand)
+            {
+                cout<<MESSAGE_COMMANDS_USAGE<<endl;
+                continue;
+            }
+        }
+
+        requestCommandCharArray = Encryption::Algorithms::Vigenere::Encrypt(requestCommand, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+        write(this->serverSocket, &requestCommandCharArray.charArrayLength, sizeof(size_t));
+        write(this->serverSocket, requestCommandCharArray.charArray, requestCommandCharArray.charArrayLength);
+
         Encryption::Types::CharArray encryptedResult;
 
         readResult = (read(this->serverSocket, &encryptedResult.charArrayLength, sizeof(size_t)));
@@ -153,7 +206,7 @@ void Client::ClientLifecycle()
             }
             continue;
         }
-
+        
         encryptedResult.charArray = new char[encryptedResult.charArrayLength];
 
         readResult = (read(this->serverSocket, encryptedResult.charArray, encryptedResult.charArrayLength));
@@ -217,55 +270,7 @@ SuccessState Client::GetCommandToSend()
     string commandToSend;
     getline(cin, commandToSend);
 
-    Encryption::Types::CharArray encrpytedCommandToSend = Encryption::Algorithms::Vigenere::Encrypt(commandToSend, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
-
-    bool operationSuccess;
-
-    operationSuccess = (write(this->serverSocket, &encrpytedCommandToSend.charArrayLength, sizeof(size_t)) > 0);
-    if (!operationSuccess)
-        return SuccessState(false, ERROR_SOCKET_WRITE);
-    operationSuccess = (write(this->serverSocket, encrpytedCommandToSend.charArray, encrpytedCommandToSend.charArrayLength) > 0);
-    if (!operationSuccess)
-        return SuccessState(false, ERROR_SOCKET_WRITE);
-
-    int readReturnValue;
-
-    size_t commandResultEncryptedLength;
-    readReturnValue = read(this->serverSocket, &commandResultEncryptedLength, sizeof(size_t));
-    if (readReturnValue <= 0)
-    {
-        if (readReturnValue == 0)
-        {
-            this->Disconnect();
-            return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
-        }
-
-        return SuccessState(false, ERROR_SOCKET_READ);
-    }
-
-    char * commandResultEncrypted = new char[commandResultEncryptedLength + 1];
-    readReturnValue = read(this->serverSocket, commandResultEncrypted, commandResultEncryptedLength);
-    if (readReturnValue <= 0)
-    {
-        delete commandResultEncrypted;
-
-        if (readReturnValue == 0)
-        {
-            this->Disconnect();
-            return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
-        }
-
-        return SuccessState(false, ERROR_SOCKET_READ);
-    }
-
-    Encryption::Types::CharArray commandResultEncryptedCharArray(commandResultEncrypted, commandResultEncryptedLength); 
-
-    string commandResult = Encryption::Algorithms::Vigenere::Decrypt(commandResultEncryptedCharArray, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
-        VIGENERE_RANDOM_SUFFIX_LENGTH);
-
-    delete commandResultEncrypted;
-
-    return SuccessState(true, commandResult);
+    return SuccessState(true, commandToSend);
 }
 
 Client::AdministratorCredentials Client::GetAdministratorCredentials()

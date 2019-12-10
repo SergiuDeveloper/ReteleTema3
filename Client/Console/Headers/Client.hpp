@@ -13,7 +13,10 @@
 #define ERROR_SOCKET_WRITE                                      "Socket write error"
 #define ERROR_SOCKET_READ                                       "Socket read error"
 #define ERROR_COMMAND_EXECUTION                                 "Failed to execute the request command on the server"
+#define COMMAND_QUIT_CLIENT                                     "QUIT"
+#define COMMAND_HELP                                            "HELP"
 #define MESSAGE_SUCCESS                                         "SUCCESS"
+#define MESSAGE_COMMANDS_USAGE                                  "Special commands :\n- HELP\n- QUIT"
 #define VIGENERE_KEY(serverPort, clientMAC)                     (to_string(serverPort) + clientMAC)
 #define VIGENERE_RANDOM_PREFIX_LENGTH                           32
 #define VIGENERE_RANDOM_SUFFIX_LENGTH                           32
@@ -40,9 +43,9 @@ class Client
 
     public:    SuccessState Connect(string serverIP, unsigned int serverPort);
     public:    SuccessState Disconnect();
-    private:   void ClientLifecycle();
+    protected: virtual void ClientLifecycle();
 
-    protected: virtual SuccessState GetCommandToSend();
+    protected: SuccessState GetCommandToSend();
     protected: virtual AdministratorCredentials GetAdministratorCredentials();
 
     protected: static string GetMacAddress();

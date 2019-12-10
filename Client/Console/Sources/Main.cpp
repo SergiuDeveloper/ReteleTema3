@@ -27,7 +27,6 @@ bool Main::Initialize(int argumentsCount, char ** argumentsArray)
         
         serverIP = argumentsList[0].substr(0, delimiterPosition);
         serverPort = atoi(argumentsList[0].erase(0, delimiterPosition + 1).c_str());
-
     }
     else
     {
@@ -38,7 +37,7 @@ bool Main::Initialize(int argumentsCount, char ** argumentsArray)
     Client clientInstance = * Client::GetSingletonInstance();
     SuccessState successState = clientInstance.Connect(serverIP, serverPort);
 
-    cout<<successState.successStateMessage_Get();
+    cout<<successState.successStateMessage_Get()<<endl;
 
     return successState.isSuccess_Get();
 }

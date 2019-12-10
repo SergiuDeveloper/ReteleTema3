@@ -75,7 +75,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     }
     catch (SQLException & mySQLException)
     {
+        while (!pthread_mutex_trylock(&this->consoleMutex));
         cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+        pthread_mutex_unlock(&this->consoleMutex);
 
         while (mySQLResultSet->next());
         while (mySQLStatement->getMoreResults())
@@ -104,8 +106,6 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         delete mySQLResultSet;
     }
 
-    string decryptedClientMAC;
-
     bool isWhitelistedMAC = false;
     if (isWhitelistedIP)
     {
@@ -133,7 +133,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         }
         catch (SQLException & mySQLException)
         {
+            while (!pthread_mutex_trylock(&this->consoleMutex));
             cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
 
             while (mySQLResultSet->next());
             while (mySQLStatement->getMoreResults())
@@ -172,13 +174,16 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
 
             if (dbClientMACEncrypted == clientSocket.clientMAC)
             {
-                decryptedClientMAC =    dbClientMAC[0] + dbClientMAC[1] + ':' +
-                                        dbClientMAC[2] + dbClientMAC[3] + ':' +
-                                        dbClientMAC[4] + dbClientMAC[5] + ':' +
-                                        dbClientMAC[6] + dbClientMAC[7] + ':' +
-                                        dbClientMAC[8] + dbClientMAC[9] + ':' +
-                                        dbClientMAC[10] + dbClientMAC[11];
+                char * decryptedClientMAC = new char[dbClientMAC.size() + 6];
+                sprintf(decryptedClientMAC, "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c", dbClientMAC[0], dbClientMAC[1], dbClientMAC[2], dbClientMAC[3], dbClientMAC[4], dbClientMAC[5], dbClientMAC[6], dbClientMAC[7], dbClientMAC[8],
+                    dbClientMAC[9], dbClientMAC[10], dbClientMAC[11]);
+
+                for (auto & clientSocketsIterator : this->clientSockets)
+                    if (clientSocketsIterator.clientIP == clientSocket.clientIP && clientSocketsIterator.clientMAC == clientSocket.clientMAC)
+                        clientSocketsIterator.clientMAC = decryptedClientMAC;
                 clientSocket.clientMAC = decryptedClientMAC;
+
+                delete decryptedClientMAC;
 
                 isWhitelistedMAC = true;
                 break;
@@ -277,7 +282,9 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
         }
         catch (SQLException & mySQLException)
         {
+            while (!pthread_mutex_trylock(&this->consoleMutex));
             cout<<ERROR_MYSQL_GENERIC_ERROR(mySQLException.getErrorCode(), mySQLException.what())<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
 
             while (mySQLResultSet->next());
             while (mySQLNormalStatement->getMoreResults())
@@ -320,27 +327,30 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     bool isWhitelistedClient = isWhitelistedIP && isWhitelistedMAC && isAdmin;
 
     for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
-            if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
+        if (this->clientSockets[clientSocketsIterator].clientIP == clientSocket.clientIP && this->clientSockets[clientSocketsIterator].clientMAC == clientSocket.clientMAC)
+        {
+            while (!pthread_mutex_trylock(&this->clientSocketsMutex));
+
+            if (isWhitelistedClient)
+                this->clientSockets[clientSocketsIterator].clientMAC = clientSocket.clientMAC;
+            else
             {
-                while (!pthread_mutex_trylock(&this->clientSocketsMutex));
-
-                if (isWhitelistedClient)
-                    this->clientSockets[clientSocketsIterator].clientMAC = decryptedClientMAC;
-                else
-                {
-                    close(clientSocket.clientSocketDescriptor);
+                close(clientSocket.clientSocketDescriptor);
                 
-                    this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
-                    this->clientSockets.pop_back();
-
-                    pthread_mutex_unlock(&this->clientSocketsMutex);
-
-                    cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
-                    return;
-                }
+                this->clientSockets[clientSocketsIterator] = this->clientSockets[this->clientSockets.size() - 1];
+                this->clientSockets.pop_back();
 
                 pthread_mutex_unlock(&this->clientSocketsMutex);
+
+                while (!pthread_mutex_trylock(&this->consoleMutex));
+                cout<<ERROR_CLIENT_NOT_WHITELISTED(clientSocket.clientIP)<<endl;
+                pthread_mutex_unlock(&this->consoleMutex);
+
+                return;
             }
+
+            pthread_mutex_unlock(&this->clientSocketsMutex);
+        }
     
     bool foundClient = false;
     for (size_t clientSocketsIterator = 0; clientSocketsIterator < this->clientSockets.size(); ++clientSocketsIterator)
@@ -354,7 +364,10 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
                 this->clientSockets.pop_back();
                 pthread_mutex_unlock(&this->clientSocketsMutex);
 
+                while (!pthread_mutex_trylock(&this->consoleMutex));
                 cout<<ERROR_CLIENT_ALREADY_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+                pthread_mutex_unlock(&this->consoleMutex);
+
                 return;
             }
             else
@@ -366,14 +379,16 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     write(clientSocket.clientSocketDescriptor, &successMessageLength, sizeof(size_t));
     write(clientSocket.clientSocketDescriptor, successMessage.c_str(), successMessageLength);
 
+    while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+    pthread_mutex_unlock(&this->consoleMutex);
 
     int readResult;
     bool clientConnected = true;
     Encryption::Types::CharArray encryptedClientRequest;
     string commandExecutionPath = DEFAULT_EXECUTION_PATH;
     while (clientConnected)
-    {    
+    {  
         readResult = (read(clientSocket.clientSocketDescriptor, &encryptedClientRequest.charArrayLength, sizeof(size_t)));
 
         if (readResult == 0)
@@ -400,7 +415,9 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 {
     string clientRequest = Encryption::Algorithms::Vigenere::Decrypt(messageToProcess, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
+    while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_RECEIVED_REQUEST(clientSocket.clientIP, clientSocket.clientMAC, clientRequest)<<endl;
+    pthread_mutex_unlock(&this->consoleMutex);
 
     clientRequest = "cd " + commandExecutionPath + " && echo \"$(whoami)@$(hostname)\" && pwd && ";
 
@@ -418,7 +435,10 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
         write(clientSocket.clientSocketDescriptor, &messageFailureEncrypted.charArrayLength, sizeof(size_t));
         write(clientSocket.clientSocketDescriptor, messageFailureEncrypted.charArray, messageFailureEncrypted.charArrayLength);
 
+        while (!pthread_mutex_trylock(&this->consoleMutex));
         cout<<ERROR_EXECUTE_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+        pthread_mutex_unlock(&this->consoleMutex);
+        
         return;
     }
 
@@ -451,7 +471,9 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 
     delete commandOutputLine;
 
+    while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_EXECUTED_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+    pthread_mutex_unlock(&this->consoleMutex);
 }
 
 void SpecializedServer::ClientDisconnected_EventCallback(ClientSocket clientSocket)
@@ -466,7 +488,10 @@ void SpecializedServer::ClientDisconnected_EventCallback(ClientSocket clientSock
             this->clientSockets.pop_back();
             pthread_mutex_unlock(&this->clientSocketsMutex);
 
+            while (!pthread_mutex_trylock(&this->consoleMutex));
             cout<<SUCCESS_CLIENT_DISCONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+            
             return;
         }
 }

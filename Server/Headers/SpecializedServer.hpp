@@ -2,9 +2,9 @@
 
 #define SUCCESS_CLIENT_CONNECTED(clientIP, clientMAC)                                   ((string)"Client " + clientIP + " : " + clientMAC + " successfully connected")
 #define SUCCESS_CLIENT_DISCONNECTED(clientIP, clientMAC)                                ((string)"Client " + clientIP + " : " + clientMAC + " successfully disconnected")
-#define SUCCESS_RECEIVED_REQUEST(clientIP, clientMAC, requestString)                    ((string)"Received request from " + clientIP + " : " + clientMAC + "\"" + requestString + "\"")
+#define SUCCESS_RECEIVED_REQUEST(clientIP, clientMAC, requestString)                    ((string)"Received request from " + clientIP + " : " + clientMAC + " : \"" + requestString + "\"")
 #define SUCCESS_EXECUTED_COMMAND(clientIP, clientMAC)                                   ((string)"Successfully executed request received from " + clientIP + " : " + clientMAC)
-#define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " : " + " is already connected")
+#define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " is already connected")
 #define ERROR_CLIENT_NOT_WHITELISTED(clientIP)                                          ((string)"Could not connect client " + clientIP + " to the server, as he is not whitelisted")
 #define ERROR_EXECUTE_COMMAND(clientIP, clientMAC)                                      ((string)"Failed to execute command received from " + clientIP + clientMAC)
 #define MYSQL_CONNECTION_STRING(mySQLServerProtocol, mySQLServerIP, mySQLServerPort)    ((string)mySQLServerProtocol + "://" + mySQLServerIP + ":" + to_string(mySQLServerPort))

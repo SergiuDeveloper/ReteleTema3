@@ -33,6 +33,7 @@ Encryption::Types::CharArray Encryption::Algorithms::Vigenere::Encrypt(string in
     uniform_int_distribution<char> uniformRandomDistribution(numeric_limits<char>::min(), numeric_limits<char>::max());
 
     Encryption::Types::CharArray encrpytedCharArray;
+    encrpytedCharArray.charArrayLength = inputString.size() + randomPrefixLength + randomSuffixlength;
     encrpytedCharArray.charArray = new char[encrpytedCharArray.charArrayLength];
 
     size_t charArrayIterator = 0;
@@ -62,8 +63,6 @@ Encryption::Types::CharArray Encryption::Algorithms::Vigenere::Encrypt(string in
 
         ++charArrayIterator;
     }
-
-    encrpytedCharArray.charArrayLength = charArrayIterator;
 
     return encrpytedCharArray;
 }
