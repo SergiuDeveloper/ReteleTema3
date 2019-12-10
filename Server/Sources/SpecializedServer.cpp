@@ -374,10 +374,11 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
                 foundClient = true;
 
     string successMessage = MESSAGE_SUCCESS;
-    size_t successMessageLength = successMessage.size();
+    string successMessageEncrypted = Encryption::Algorithms::SHA256::Encrypt(successMessage);
+    size_t successMessageEncryptedLength = successMessageEncrypted.size();
 
-    write(clientSocket.clientSocketDescriptor, &successMessageLength, sizeof(size_t));
-    write(clientSocket.clientSocketDescriptor, successMessage.c_str(), successMessageLength);
+    write(clientSocket.clientSocketDescriptor, &successMessageEncryptedLength, sizeof(size_t));
+    write(clientSocket.clientSocketDescriptor, successMessageEncrypted.c_str(), successMessageEncryptedLength);
 
     while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
@@ -419,7 +420,7 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
     cout<<SUCCESS_RECEIVED_REQUEST(clientSocket.clientIP, clientSocket.clientMAC, clientRequest)<<endl;
     pthread_mutex_unlock(&this->consoleMutex);
 
-    clientRequest = "cd " + commandExecutionPath + " && echo \"$(whoami)@$(hostname)\" && pwd && ";
+    clientRequest = "cd \"" + commandExecutionPath + "\" && pwd && echo \"$(whoami)@$(hostname)\" && " + clientRequest;
 
     bool operationSuccess;
 

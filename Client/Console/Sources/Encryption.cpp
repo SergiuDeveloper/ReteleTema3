@@ -29,7 +29,9 @@ string Encryption::Algorithms::SHA256::Decrypt(string encryptedString, vector<En
 
 Encryption::Types::CharArray Encryption::Algorithms::Vigenere::Encrypt(string inputString, string keyString, size_t randomPrefixLength, size_t randomSuffixlength)
 {
-    default_random_engine randomEngine;
+    long randomEngineSeed = std::chrono::system_clock::now().time_since_epoch().count();
+
+    default_random_engine randomEngine(randomEngineSeed);
     uniform_int_distribution<char> uniformRandomDistribution(numeric_limits<char>::min(), numeric_limits<char>::max());
 
     Encryption::Types::CharArray encrpytedCharArray;
@@ -69,7 +71,7 @@ Encryption::Types::CharArray Encryption::Algorithms::Vigenere::Encrypt(string in
 
 string Encryption::Algorithms::Vigenere::Decrypt(Encryption::Types::CharArray encrpytedString, string keyString, size_t randomPrefixLength, size_t randomSuffixlength)
 {
-    char * decrpytedString = new char[encrpytedString.charArrayLength - randomPrefixLength - randomSuffixlength];
+    char * decrpytedString = new char[encrpytedString.charArrayLength - randomPrefixLength - randomSuffixlength + 1];
     size_t decrpytedStringLength = 0;
     for (size_t encrpytedStringIterator = randomPrefixLength; encrpytedStringIterator < encrpytedString.charArrayLength - randomSuffixlength; ++encrpytedStringIterator)
     {
@@ -88,6 +90,7 @@ string Encryption::Algorithms::Vigenere::Decrypt(Encryption::Types::CharArray en
         decryptedCharacter = (char)(decrpytedString[decryptedStringIterator] - keyString[decryptedStringIterator]);
         decrpytedString[decryptedStringIterator] = (decryptedCharacter < numeric_limits<char>::min() ? decryptedCharacter + numeric_limits<char>::max() : decryptedCharacter);
     }
+    decrpytedString[decrpytedStringLength] = '\0';
 
     return decrpytedString;
 }

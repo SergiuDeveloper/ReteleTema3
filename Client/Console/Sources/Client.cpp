@@ -88,7 +88,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     }
 
     size_t serverResponseLength;
-    operationSuccess = read(this->serverSocket, &serverResponseLength, sizeof(size_t) > 0);
+    operationSuccess = (read(this->serverSocket, &serverResponseLength, sizeof(size_t)) > 0);
     if (!operationSuccess)
     {
         close(this->serverSocket);
@@ -96,7 +96,7 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
     }
 
     char * serverResponse = new char[serverResponseLength + 1];
-    operationSuccess = read(this->serverSocket, serverResponse, serverResponseLength);
+    operationSuccess = (read(this->serverSocket, serverResponse, serverResponseLength) > 0);
     serverResponse[serverResponseLength] = '\0';
     if (!operationSuccess)
     {
@@ -106,11 +106,12 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
 
     string successMessageEncrypted = Encryption::Algorithms::SHA256::Encrypt(MESSAGE_SUCCESS);
     if (successMessageEncrypted != (string)serverResponse)
-    if (!operationSuccess)
     {
         close(this->serverSocket);
         return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
     }
+
+    delete serverResponse;
 
     this->isConnected = true;
 
@@ -163,7 +164,7 @@ void Client::ClientLifecycle()
         {
             isQuitCommand = true;
             for (size_t requestCommandIterator = 0; requestCommandIterator < requestCommand.size(); ++requestCommandIterator)
-                if (requestCommand[requestCommandIterator] != quitCommand[requestCommandIterator])
+                if (requestCommand[requestCommandIterator] != quitCommand[requestCommandIterator] && toupper(requestCommand[requestCommandIterator]) != quitCommand[requestCommandIterator])
                     isQuitCommand = false;
 
             if (isQuitCommand)
@@ -177,7 +178,7 @@ void Client::ClientLifecycle()
         {
             isHelpCommand = true;
              for (size_t requestCommandIterator = 0; requestCommandIterator < requestCommand.size(); ++requestCommandIterator)
-                if (requestCommand[requestCommandIterator] != helpCommand[requestCommandIterator])
+                if (requestCommand[requestCommandIterator] != helpCommand[requestCommandIterator] && toupper(requestCommand[requestCommandIterator]) != helpCommand[requestCommandIterator])
                     isHelpCommand = false;
 
             if (isHelpCommand)
@@ -188,7 +189,7 @@ void Client::ClientLifecycle()
         }
 
         requestCommandCharArray = Encryption::Algorithms::Vigenere::Encrypt(requestCommand, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
-
+        
         write(this->serverSocket, &requestCommandCharArray.charArrayLength, sizeof(size_t));
         write(this->serverSocket, requestCommandCharArray.charArray, requestCommandCharArray.charArrayLength);
 
