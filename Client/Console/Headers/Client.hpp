@@ -20,6 +20,11 @@
 #define VIGENERE_KEY(serverPort, clientMAC)                     (to_string(serverPort) + clientMAC)
 #define VIGENERE_RANDOM_PREFIX_LENGTH                           32
 #define VIGENERE_RANDOM_SUFFIX_LENGTH                           32
+#define DEFAULT_EXECUTION_PATH                                  "./"
+#define INITIALIZE_COLOR()                                      setupterm(nullptr, 1, nullptr)
+#define COLOR_DEFAULT                                           tigetstr("sgr0")
+#define COLOR_GREEN                                             tparm(tigetstr("setaf"), 2)
+#define COLOR_BLUE                                              tparm(tigetstr("setaf"), 4)
 
 #include <sys/socket.h>
 #include <sys/unistd.h>
@@ -43,7 +48,7 @@ class Client
 
     public:    SuccessState Connect(string serverIP, unsigned int serverPort);
     public:    SuccessState Disconnect();
-    protected: virtual void ClientLifecycle();
+    protected: virtual void ClientLifecycle(string currentUser, string commandExecutionLocation);
 
     protected: SuccessState GetCommandToSend();
     protected: virtual AdministratorCredentials GetAdministratorCredentials();

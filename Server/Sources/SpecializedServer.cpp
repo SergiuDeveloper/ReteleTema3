@@ -384,10 +384,92 @@ void SpecializedServer::ClientConnected_EventCallback(ClientSocket clientSocket)
     cout<<SUCCESS_CLIENT_CONNECTED(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
     pthread_mutex_unlock(&this->consoleMutex);
 
+    char hostName[HOST_NAME_MAX + 1];
+    gethostname(hostName, HOST_NAME_MAX);
+    char * userName = getenv(UNIX_USERNAME_ENV);
+
+    string clientRequest = (string)"pwd && echo " + userName + "@" + hostName + " && exit";
+
+    string commandResponse;
+    string commandExecutionPath = DEFAULT_EXECUTION_PATH;
+
+    int pipeDescriptor[2];
+    pipe(pipeDescriptor);
+
+    int forkReturnValue = fork();
+
+    switch (forkReturnValue)
+    {
+        case -1:
+        {
+            string messageFailure = MESSAGE_FAILURE;
+            Encryption::Types::CharArray messageFailureEncrypted = Encryption::Algorithms::Vigenere::Encrypt(messageFailure, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+                VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+            write(clientSocket.clientSocketDescriptor, &messageFailureEncrypted.charArrayLength, sizeof(size_t));
+            write(clientSocket.clientSocketDescriptor, messageFailureEncrypted.charArray, messageFailureEncrypted.charArrayLength);
+
+            break;
+        }
+        case 0:
+        {
+            dup2(pipeDescriptor[1], STDOUT_FILENO);
+            close(pipeDescriptor[0]);
+            close(pipeDescriptor[1]);
+
+            const char * commandPath = "/bin/sh";
+            const char * commandArguments[] = { commandPath, "-c", clientRequest.c_str(), nullptr };
+
+            execvp(commandPath, (char **)commandArguments);
+ 
+            exit(EXIT_FAILURE);
+
+            break;
+        }
+        default:
+        {
+            close(pipeDescriptor[1]);
+
+            commandResponse = "";
+
+            size_t commandOutputMaximumLegth = SOCKET_CHUNK_SIZE - VIGENERE_RANDOM_PREFIX_LENGTH - VIGENERE_RANDOM_SUFFIX_LENGTH;
+            char * commandOutput = new char[commandOutputMaximumLegth];
+            int commandOutputLength;
+            while ((commandOutputLength = read(pipeDescriptor[0], commandOutput, commandOutputMaximumLegth)) > 0)
+            {
+                commandOutput[commandOutputLength] = '\0';
+                commandResponse += commandOutput;
+            }
+
+            size_t newlinePosition = commandResponse.find('\n');
+            if (newlinePosition == string::npos)
+            {
+                commandExecutionPath = commandResponse;
+                commandResponse.clear();
+            }
+            else
+                commandExecutionPath = commandResponse.substr(0, newlinePosition);
+            
+            if (commandResponse.size() > commandOutputMaximumLegth)
+                commandResponse.resize(commandOutputMaximumLegth);
+
+            close(pipeDescriptor[0]);
+
+            delete commandOutput;
+
+            break;
+        }
+    }
+
+    Encryption::Types::CharArray commandOutputEncrypted = Encryption::Algorithms::Vigenere::Encrypt(commandResponse, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+        VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+    write(clientSocket.clientSocketDescriptor, &commandOutputEncrypted.charArrayLength, sizeof(size_t));
+    write(clientSocket.clientSocketDescriptor, commandOutputEncrypted.charArray, commandOutputEncrypted.charArrayLength);
+
     int readResult;
     bool clientConnected = true;
     Encryption::Types::CharArray encryptedClientRequest;
-    string commandExecutionPath = DEFAULT_EXECUTION_PATH;
     while (clientConnected)
     {  
         readResult = (read(clientSocket.clientSocketDescriptor, &encryptedClientRequest.charArrayLength, sizeof(size_t)));
@@ -424,14 +506,12 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
     gethostname(hostName, HOST_NAME_MAX);
     char * userName = getenv(UNIX_USERNAME_ENV);
 
-    clientRequest = "cd \"" + commandExecutionPath + "\" && pwd && echo " + userName + "@" + hostName + " && " + clientRequest;
+    clientRequest = "cd \"" + commandExecutionPath + "\" && echo " + userName + "@" + hostName + " && " + clientRequest + " && pwd && exit";
 
     string commandResponse;
 
     int pipeDescriptor[2];
     pipe(pipeDescriptor);
-    
-    while (!pthread_mutex_trylock(&this->consoleMutex));
 
     int forkReturnValue = fork();
 
@@ -450,7 +530,6 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
             cout<<ERROR_EXECUTE_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
             pthread_mutex_unlock(&this->consoleMutex);
             
-            pthread_mutex_unlock(&this->consoleMutex);
             break;
         }
         case 0:
@@ -466,7 +545,6 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
  
             exit(EXIT_FAILURE);
 
-            pthread_mutex_unlock(&this->consoleMutex);
             break;
         }
         default:
@@ -476,28 +554,26 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
             commandResponse = "";
 
             size_t commandOutputMaximumLegth = SOCKET_CHUNK_SIZE - VIGENERE_RANDOM_PREFIX_LENGTH - VIGENERE_RANDOM_SUFFIX_LENGTH;
-            char * commandOutput = new char[commandOutputMaximumLegth];
+            char * commandOutput = new char[commandOutputMaximumLegth + 1];
             int commandOutputLength;
-            bool isCommandExecutionPath = true;
             while ((commandOutputLength = read(pipeDescriptor[0], commandOutput, commandOutputMaximumLegth)) > 0)
             {
                 commandOutput[commandOutputLength] = '\0';
                 commandResponse += commandOutput;
-
-                if (isCommandExecutionPath)
-                {
-                    commandExecutionPath = ((string)commandOutput).substr(0, commandOutputLength - 1);
-                    isCommandExecutionPath = false;
-                }
             }
 
             close(pipeDescriptor[0]);
 
-            commandResponse = commandOutput;
+            commandExecutionPath = commandResponse;
+            while (commandExecutionPath[commandExecutionPath.size() - 1] == '\n')
+                commandExecutionPath.pop_back();
+            commandExecutionPath = commandExecutionPath.substr(commandExecutionPath.rfind('\n') + 1);
+
+            if (commandResponse.size() > commandOutputMaximumLegth)
+                commandResponse.resize(commandOutputMaximumLegth);
 
             delete commandOutput;
 
-            pthread_mutex_unlock(&this->consoleMutex);
             break;
         }
     }

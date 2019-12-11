@@ -117,7 +117,63 @@ SuccessState Client::Connect(string serverIP, unsigned int serverPort)
 
     cout<<SUCCESS_CONNECTION_ESTABLISHED(this->serverIP, this->serverPort)<<endl;
 
-    this->ClientLifecycle();
+    char * clientMACCString = new char[this->clientMAC.size() + 6];
+    sprintf(clientMACCString, "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c", this->clientMAC[0], this->clientMAC[1], this->clientMAC[2], this->clientMAC[3], this->clientMAC[4], this->clientMAC[5], this->clientMAC[6], this->clientMAC[7],
+        this->clientMAC[8], this->clientMAC[9], this->clientMAC[10], this->clientMAC[11]);
+    
+    this->clientMAC = clientMACCString;
+
+    Encryption::Types::CharArray encryptedResult;
+
+    string currentUser = INVALID_STRING;
+    string commandExecutionLocation = INVALID_STRING;
+
+    int readResult = (read(this->serverSocket, &encryptedResult.charArrayLength, sizeof(size_t)));
+    if (readResult <= 0)
+    {
+        cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+        if (readResult == 0)
+        {
+            this->Disconnect();
+            return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+        }
+    }
+    else
+    {   
+        encryptedResult.charArray = new char[encryptedResult.charArrayLength];
+
+        readResult = (read(this->serverSocket, encryptedResult.charArray, encryptedResult.charArrayLength));
+        if (readResult <= 0)
+        {
+            cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+            if (readResult == 0)
+            {
+                this->Disconnect();
+                return SuccessState(false, ERROR_CONNECTION_INTRERUPTED);
+            }
+        }
+        else
+        {
+            string receivedResult = Encryption::Algorithms::Vigenere::Decrypt(encryptedResult, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+            size_t newlinePosition = receivedResult.find('\n');
+            commandExecutionLocation = receivedResult.substr(0, newlinePosition);
+            receivedResult = receivedResult.erase(0, newlinePosition + 1);
+
+            newlinePosition = receivedResult.find('\n');
+            currentUser = receivedResult.substr(0, newlinePosition);
+            receivedResult = receivedResult.erase(0, newlinePosition + 1);
+
+            INITIALIZE_COLOR();
+            
+            cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+            cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+        }
+    }
+
+    this->ClientLifecycle(currentUser, commandExecutionLocation);
 
     return SuccessState(true, SUCCESS_CLIENT_LIFECYCLE);
 }
@@ -134,7 +190,7 @@ SuccessState Client::Disconnect()
     return SuccessState(true, SUCCESS_CONNECTION_CLOSED(this->serverIP, this->serverPort));
 }
 
-void Client::ClientLifecycle()
+void Client::ClientLifecycle(string currentUser, string commandExecutionLocation)
 {
     string quitCommand = COMMAND_QUIT_CLIENT;
     string helpCommand = COMMAND_HELP;
@@ -184,6 +240,10 @@ void Client::ClientLifecycle()
             if (isHelpCommand)
             {
                 cout<<MESSAGE_COMMANDS_USAGE<<endl;
+
+                cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                
                 continue;
             }
         }
@@ -228,20 +288,29 @@ void Client::ClientLifecycle()
         string receivedResult = Encryption::Algorithms::Vigenere::Decrypt(encryptedResult, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
         size_t newlinePosition = receivedResult.find('\n');
-        string currentUser = receivedResult.substr(0, newlinePosition - 1);
-        receivedResult = receivedResult.erase(0, newlinePosition + 1);
+        if (newlinePosition == string::npos)
+        {
+            currentUser = receivedResult;
+            receivedResult.clear();
+        }
+        else
+        {
+            currentUser = receivedResult.substr(0, newlinePosition);
+            receivedResult = receivedResult.erase(0, newlinePosition + 1);
+        }
 
-        setupterm(NULL, 1, NULL);
         
-        cout<<tparm(tigetstr("setaf"), 2)<<currentUser<<tigetstr("sgr0")<<':';
+        commandExecutionLocation = receivedResult;
+        while (commandExecutionLocation[commandExecutionLocation.size() - 1] == '\n')
+            commandExecutionLocation.pop_back();
 
-        newlinePosition = receivedResult.find('\n');
-        string commandExecutionLocation = receivedResult.substr(0, newlinePosition);
-        receivedResult = receivedResult.erase(0, newlinePosition + 1);
-
-        cout<<tparm(tigetstr("setaf"), 4)<<commandExecutionLocation<<tigetstr("sgr0")<<'$'<<endl;
+        newlinePosition = commandExecutionLocation.rfind('\n');
+        commandExecutionLocation = commandExecutionLocation.substr(newlinePosition + 1);
+        receivedResult.erase(newlinePosition + 1);
 
         cout<<receivedResult;
+        cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+        cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
     }
 }
 

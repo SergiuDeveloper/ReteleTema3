@@ -72,25 +72,25 @@ Encryption::Types::CharArray Encryption::Algorithms::Vigenere::Encrypt(string in
 string Encryption::Algorithms::Vigenere::Decrypt(Encryption::Types::CharArray encrpytedString, string keyString, size_t randomPrefixLength, size_t randomSuffixlength)
 {
     char * decrpytedString = new char[encrpytedString.charArrayLength - randomPrefixLength - randomSuffixlength + 1];
-    size_t decrpytedStringLength = 0;
+    size_t decryptedStringLength = 0;
     for (size_t encrpytedStringIterator = randomPrefixLength; encrpytedStringIterator < encrpytedString.charArrayLength - randomSuffixlength; ++encrpytedStringIterator)
     {
-        decrpytedString[decrpytedStringLength] = encrpytedString.charArray[encrpytedStringIterator];
+        decrpytedString[decryptedStringLength] = encrpytedString.charArray[encrpytedStringIterator];
 
-        ++decrpytedStringLength;
+        ++decryptedStringLength;
     }
 
     string originalKeyString = keyString;
-    while (keyString.size() < decrpytedStringLength)
+    while (keyString.size() < decryptedStringLength)
         keyString += originalKeyString;
 
     char decryptedCharacter;
-    for (size_t decryptedStringIterator = 0; decryptedStringIterator < decrpytedStringLength; ++decryptedStringIterator)
+    for (size_t decryptedStringIterator = 0; decryptedStringIterator < decryptedStringLength; ++decryptedStringIterator)
     {
         decryptedCharacter = (char)(decrpytedString[decryptedStringIterator] - keyString[decryptedStringIterator]);
         decrpytedString[decryptedStringIterator] = (decryptedCharacter < numeric_limits<char>::min() ? decryptedCharacter + numeric_limits<char>::max() : decryptedCharacter);
     }
-    decrpytedString[decrpytedStringLength] = '\0';
+    decrpytedString[decryptedStringLength] = '\0';
 
     return decrpytedString;
 }
