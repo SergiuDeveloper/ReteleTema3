@@ -27,7 +27,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <string.h>
-#include <ncurses.h>
+#include <term.h>
 #include <iostream>
 #include <string>
 #include "Encryption.hpp"

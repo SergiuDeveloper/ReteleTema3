@@ -208,7 +208,7 @@ void Client::ClientLifecycle()
             continue;
         }
         
-        encryptedResult.charArray = new char[encryptedResult.charArrayLength];
+        encryptedResult.charArray = new char[encryptedResult.charArrayLength + 1];
 
         readResult = (read(this->serverSocket, encryptedResult.charArray, encryptedResult.charArrayLength));
         if (readResult <= 0)
@@ -223,41 +223,23 @@ void Client::ClientLifecycle()
             continue;
         }
 
+        encryptedResult.charArray[encryptedResult.charArrayLength] = '\0';
+
         string receivedResult = Encryption::Algorithms::Vigenere::Decrypt(encryptedResult, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
         size_t newlinePosition = receivedResult.find('\n');
-        string currentUser = receivedResult.substr(0, newlinePosition);
+        string currentUser = receivedResult.substr(0, newlinePosition - 1);
         receivedResult = receivedResult.erase(0, newlinePosition + 1);
 
-        if (has_colors())
-        {
-            use_default_colors();
-            start_color();
-            init_pair(1, COLOR_GREEN, -1);
-
-            printw(currentUser.c_str());
-        }
-        else
-            cout<<currentUser;
-
-        cout<<':';
+        setupterm(NULL, 1, NULL);
+        
+        cout<<tparm(tigetstr("setaf"), 2)<<currentUser<<tigetstr("sgr0")<<':';
 
         newlinePosition = receivedResult.find('\n');
         string commandExecutionLocation = receivedResult.substr(0, newlinePosition);
         receivedResult = receivedResult.erase(0, newlinePosition + 1);
 
-        if (has_colors())
-        {
-            use_default_colors();
-            start_color();
-            init_pair(1, COLOR_BLUE, -1);
-
-            printw(commandExecutionLocation.c_str());
-        }
-        else
-            cout<<commandExecutionLocation;
-
-        cout<<'$'<<endl;
+        cout<<tparm(tigetstr("setaf"), 4)<<commandExecutionLocation<<tigetstr("sgr0")<<'$'<<endl;
 
         cout<<receivedResult;
     }

@@ -425,7 +425,6 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
     char * userName = getenv(UNIX_USERNAME_ENV);
 
     clientRequest = "cd \"" + commandExecutionPath + "\" && pwd && echo " + userName + "@" + hostName + " && " + clientRequest;
-    cout<<clientRequest<<endl;
 
     string commandResponse;
 
