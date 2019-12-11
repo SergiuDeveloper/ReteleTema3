@@ -15,6 +15,7 @@
 #define MESSAGE_FAILURE                                                                 "FAILURE"
 #define SOCKET_CHUNK_SIZE                                                               4096
 #define DEFAULT_EXECUTION_PATH                                                          "./"
+#define UNIX_USERNAME_ENV                                                              "USERNAME"
 #define VIGENERE_KEY(serverPort, clientMAC)                                             (to_string(serverPort) + clientMAC)
 #define VIGENERE_RANDOM_PREFIX_LENGTH                                                   32
 #define VIGENERE_RANDOM_SUFFIX_LENGTH                                                   32
@@ -24,6 +25,7 @@
 #include <cppconn/resultset.h>
 #include <cppconn/exception.h>
 #include <pthread.h>
+#include <limits.h>
 #include <iostream>
 #include <string>
 #include "Server.hpp"

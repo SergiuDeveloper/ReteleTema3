@@ -420,57 +420,94 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
     cout<<SUCCESS_RECEIVED_REQUEST(clientSocket.clientIP, clientSocket.clientMAC, clientRequest)<<endl;
     pthread_mutex_unlock(&this->consoleMutex);
 
-    clientRequest = "cd \"" + commandExecutionPath + "\" && pwd && echo \"$(whoami)@$(hostname)\" && " + clientRequest;
+    char hostName[HOST_NAME_MAX + 1];
+    gethostname(hostName, HOST_NAME_MAX);
+    char * userName = getenv(UNIX_USERNAME_ENV);
 
-    bool operationSuccess;
+    clientRequest = "cd \"" + commandExecutionPath + "\" && pwd && echo " + userName + "@" + hostName + " && " + clientRequest;
+    cout<<clientRequest<<endl;
 
-    FILE * commandLinePipe;
-    operationSuccess = ((commandLinePipe = popen(clientRequest.c_str(), "r")) != nullptr);
+    string commandResponse;
 
-    if (!operationSuccess)
+    int pipeDescriptor[2];
+    pipe(pipeDescriptor);
+    
+    while (!pthread_mutex_trylock(&this->consoleMutex));
+
+    int forkReturnValue = fork();
+
+    switch (forkReturnValue)
     {
-        string messageFailure = MESSAGE_FAILURE;
-        Encryption::Types::CharArray messageFailureEncrypted = Encryption::Algorithms::Vigenere::Encrypt(messageFailure, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
-            VIGENERE_RANDOM_SUFFIX_LENGTH);
-
-        write(clientSocket.clientSocketDescriptor, &messageFailureEncrypted.charArrayLength, sizeof(size_t));
-        write(clientSocket.clientSocketDescriptor, messageFailureEncrypted.charArray, messageFailureEncrypted.charArrayLength);
-
-        while (!pthread_mutex_trylock(&this->consoleMutex));
-        cout<<ERROR_EXECUTE_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
-        pthread_mutex_unlock(&this->consoleMutex);
-        
-        return;
-    }
-
-    bool currentDirectoryLog = true;
-
-    string commandOutput = "";
-    size_t outputCharsToRead = SOCKET_CHUNK_SIZE - VIGENERE_RANDOM_PREFIX_LENGTH - VIGENERE_RANDOM_SUFFIX_LENGTH;
-    char * commandOutputLine = new char[outputCharsToRead];
-    while (fgets(commandOutputLine, outputCharsToRead, commandLinePipe))
-    {
-        commandOutput += (string)commandOutputLine;
-
-        if (currentDirectoryLog)
+        case -1:
         {
-            commandExecutionPath = (string)commandOutputLine;
+            string messageFailure = MESSAGE_FAILURE;
+            Encryption::Types::CharArray messageFailureEncrypted = Encryption::Algorithms::Vigenere::Encrypt(messageFailure, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+                VIGENERE_RANDOM_SUFFIX_LENGTH);
 
-            currentDirectoryLog = false;
+            write(clientSocket.clientSocketDescriptor, &messageFailureEncrypted.charArrayLength, sizeof(size_t));
+            write(clientSocket.clientSocketDescriptor, messageFailureEncrypted.charArray, messageFailureEncrypted.charArrayLength);
+
+            while (!pthread_mutex_trylock(&this->consoleMutex));
+            cout<<ERROR_EXECUTE_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+            
+            pthread_mutex_unlock(&this->consoleMutex);
+            break;
+        }
+        case 0:
+        {
+            dup2(pipeDescriptor[1], STDOUT_FILENO);
+            close(pipeDescriptor[0]);
+            close(pipeDescriptor[1]);
+
+            const char * commandPath = "/bin/sh";
+            const char * commandArguments[] = { commandPath, "-c", clientRequest.c_str(), nullptr };
+
+            execvp(commandPath, (char **)commandArguments);
+ 
+            exit(EXIT_FAILURE);
+
+            pthread_mutex_unlock(&this->consoleMutex);
+            break;
+        }
+        default:
+        {
+            close(pipeDescriptor[1]);
+
+            commandResponse = "";
+
+            size_t commandOutputMaximumLegth = SOCKET_CHUNK_SIZE - VIGENERE_RANDOM_PREFIX_LENGTH - VIGENERE_RANDOM_SUFFIX_LENGTH;
+            char * commandOutput = new char[commandOutputMaximumLegth];
+            int commandOutputLength;
+            bool isCommandExecutionPath = true;
+            while ((commandOutputLength = read(pipeDescriptor[0], commandOutput, commandOutputMaximumLegth)) > 0)
+            {
+                commandOutput[commandOutputLength] = '\0';
+                commandResponse += commandOutput;
+
+                if (isCommandExecutionPath)
+                {
+                    commandExecutionPath = ((string)commandOutput).substr(0, commandOutputLength - 1);
+                    isCommandExecutionPath = false;
+                }
+            }
+
+            close(pipeDescriptor[0]);
+
+            commandResponse = commandOutput;
+
+            delete commandOutput;
+
+            pthread_mutex_unlock(&this->consoleMutex);
+            break;
         }
     }
-    
-    pclose(commandLinePipe);
 
-    commandOutput.resize(outputCharsToRead);
-
-    Encryption::Types::CharArray commandOutputEncrypted = Encryption::Algorithms::Vigenere::Encrypt(commandOutput, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+    Encryption::Types::CharArray commandOutputEncrypted = Encryption::Algorithms::Vigenere::Encrypt(commandResponse, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
         VIGENERE_RANDOM_SUFFIX_LENGTH);
 
     write(clientSocket.clientSocketDescriptor, &commandOutputEncrypted.charArrayLength, sizeof(size_t));
     write(clientSocket.clientSocketDescriptor, commandOutputEncrypted.charArray, commandOutputEncrypted.charArrayLength);
-
-    delete commandOutputLine;
 
     while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_EXECUTED_COMMAND(clientSocket.clientIP, clientSocket.clientMAC)<<endl;
