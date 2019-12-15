@@ -27,8 +27,8 @@ bool RDCStreamingServer::Start()
         return false;
 
     bool operationResult;
-
-    operationResult = (RDCStreamingServer::serverSocket = socket(AF_INET, SOCK_DGRAM, 0) != -1);
+ 
+    operationResult = ((RDCStreamingServer::serverSocket = socket(AF_INET, SOCK_DGRAM, 0)) != -1);
     if (!operationResult)
         return false;
 
