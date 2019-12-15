@@ -167,6 +167,17 @@ The second server would use the UDP/IP protocol for streaming the server's deskt
 \includegraphics[width=150mm]{RDC Network Diagram.png}
 \end{figure}
 
+The network diagram containing the RDP sub-network would be the following :
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=150mm]{Network Diagram with RDC.png}
+\end{figure}
+
+The two servers dedicated to RDC are being started and stopped automatically by the main server. Whenever a client received clearing for RDC connection from the main server, he is marked as "whitelisted" on the RDC servers and he will be prompted to connect to the two servers.\\
+In order to send the data regarding the server's screen the UDP protocol is being used, as mentioned previously!\\
+The data is being serialized and sent in chunks of 4096 bytes, in order not to exceed the maximum socket buffer length.
+
 \begin{thebibliography}{8}
 
 \bibitem{}
