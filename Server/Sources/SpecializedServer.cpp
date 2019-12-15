@@ -36,8 +36,6 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
         
         return localServerSuccessState;
     }
-
-    SpecializedServer::singletonInstance = this;
     
     return successState;
 }
