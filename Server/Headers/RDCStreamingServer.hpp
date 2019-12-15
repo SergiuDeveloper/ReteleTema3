@@ -1,3 +1,5 @@
+#pragma once
+
 #define SOCKET_BUFFER_LENGTH 4096
 
 #include <vector>
@@ -26,7 +28,7 @@ class RDCStreamingServer
     private: static unsigned int serverPort;
     private: static bool isRunning;
     private: static Display * serverDisplay;
-    private: static XColor *** colorArray;
+    private: static unsigned long ** colorArray;
     private: static vector<string> colorArraySerialized;
 
     private: static void * GatherDisplayInfoThreadFunc(void * threadArguments);

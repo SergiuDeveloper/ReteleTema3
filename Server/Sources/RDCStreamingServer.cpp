@@ -6,7 +6,7 @@ bool RDCStreamingServer::isRunning = false;
 vector<string> whitelistedIPsVector;
 pthread_mutex_t whitelistedIPsVectorMutex;
 Display * RDCStreamingServer::serverDisplay;
-XColor *** RDCStreamingServer::colorArray;
+unsigned long ** RDCStreamingServer::colorArray;
 vector<string> RDCStreamingServer::colorArraySerialized;
 
 bool RDCStreamingServer::IsGraphicsCompatible()
@@ -46,11 +46,11 @@ bool RDCStreamingServer::Start()
 
     RDCStreamingServer::serverPort = ntohs(serverSocketAddr.sin_port);
 
+    RDCStreamingServer::isRunning = true;
+
     pthread_t gatherDisplayInfoThread;
     pthread_create(&gatherDisplayInfoThread, nullptr, RDCStreamingServer::GatherDisplayInfoThreadFunc, nullptr);
     pthread_detach(gatherDisplayInfoThread);
-
-    RDCStreamingServer::isRunning = true;
 
     return true;
 }
@@ -83,13 +83,9 @@ void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
 {
     Screen * defaultScreen = DefaultScreenOfDisplay(RDCStreamingServer::serverDisplay);
 
-    RDCStreamingServer::colorArray = new XColor **[defaultScreen->height];
+    RDCStreamingServer::colorArray = new unsigned long *[defaultScreen->height];
     for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
-    {
-        RDCStreamingServer::colorArray[colorArrayY] = new XColor *[defaultScreen->width];
-        for (int colorArrayX = 0; colorArrayX < defaultScreen->width; ++colorArrayX)
-            RDCStreamingServer::colorArray[colorArrayY][colorArrayX] = new XColor;
-    }
+        RDCStreamingServer::colorArray[colorArrayY] = new unsigned long[defaultScreen->width];
 
     int rootWindow = defaultScreen->root;
     XImage * displayImage;
@@ -101,20 +97,13 @@ void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
 
         for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
             for (int colorArrayX = 0; colorArrayX < defaultScreen->width; ++colorArrayX)
-            {
-                RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->pixel = XGetPixel(displayImage, colorArrayX, colorArrayY);
-                XQueryColor(RDCStreamingServer::serverDisplay, defaultColormap, RDCStreamingServer::colorArray[colorArrayY][colorArrayX]);
-            }
+                RDCStreamingServer::colorArray[colorArrayY][colorArrayX] = XGetPixel(displayImage, colorArrayX, colorArrayY);
 
         RDCStreamingServer::SerializeColorArray(defaultScreen->height, defaultScreen->width);
     }
 
     for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
-    {
-        for (int colorArrayX = 0; colorArrayX < defaultScreen->width; ++colorArrayX)
-            delete RDCStreamingServer::colorArray[colorArrayY][colorArrayX];
         delete RDCStreamingServer::colorArray[colorArrayY];
-    }
     delete RDCStreamingServer::colorArray;
 
     delete defaultScreen;
@@ -132,8 +121,7 @@ void RDCStreamingServer::SerializeColorArray(int screenHeight, int screenWidth)
     for (int colorArrayY = 0; colorArrayY < screenHeight; ++colorArrayY)
         for (int colorArrayX = 0; colorArrayX < screenWidth; ++colorArrayX)
         {
-            stringToAdd = to_string(colorArrayY) + ' ' + to_string(colorArrayX) + ' ' + to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->red) + ' ' +
-                to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->green) + ' ' + to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->blue) + ' ';
+            stringToAdd = to_string(colorArrayY) + ' ' + to_string(colorArrayX) + ' ' + to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]);
 
             if (vectorEntry.size() + stringToAdd.size() <= SOCKET_BUFFER_LENGTH)
                 vectorEntry += stringToAdd;

@@ -1,7 +1,8 @@
 g++  								\
 -O3 								\
 -Wno-unused-result						\
-Sources/Client.cpp Sources/Encryption.cpp 			\
-Sources/SuccessState.cpp Sources/Main.cpp  main.cpp		\
+Sources/RDCStreamingClient.cpp Sources/Client.cpp		\
+Sources/Encryption.cpp Sources/SuccessState.cpp			\ 
+Sources/Main.cpp main.cpp					\
 -o Bin/Client							\
--lcrypto -lncurses
+-lcrypto -lncurses -lX11
