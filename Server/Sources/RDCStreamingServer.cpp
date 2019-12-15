@@ -6,6 +6,18 @@ bool RDCStreamingServer::isRunning = false;
 vector<string> whitelistedIPsVector;
 pthread_mutex_t whitelistedIPsVectorMutex;
 Display * RDCStreamingServer::serverDisplay;
+XColor *** RDCStreamingServer::colorArray;
+vector<string> RDCStreamingServer::colorArraySerialized;
+
+bool RDCStreamingServer::IsGraphicsCompatible()
+{
+    Display * xDisplay = XOpenDisplay(nullptr);
+    bool isGraphicsCompatible = (XSetStipple != nullptr);
+
+    delete xDisplay;
+
+    return isGraphicsCompatible;
+}
 
 bool RDCStreamingServer::Start()
 {
@@ -35,9 +47,6 @@ bool RDCStreamingServer::Start()
     getsockname(RDCStreamingServer::serverSocket, (struct sockaddr *)&serverSocketAddr, &serverSocketAddrLength);
 
     RDCStreamingServer::serverPort = ntohs(serverSocketAddr.sin_port);
-    RDCStreamingServer::whitelistedClientsVector.clear();
-
-    pthread_mutex_init(&RDCStreamingServer::whitelistedIPsVectorMutex, nullptr);
 
     GatherDisplayInfo();
 
@@ -56,27 +65,16 @@ bool RDCStreamingServer::Stop()
 
     close(RDCStreamingServer::serverSocket);
 
-    pthread_mutex_destroy(&RDCStreamingServer::whitelistedIPsVectorMutex);
-
     return true;
 }
 
-bool RDCStreamingServer::AddWhitelistedClient(int whitelistedClient)
+bool RDCStreamingServer::AddWhitelistedClient(struct sockaddr_in clientSocketAddr)
 {
     if (!RDCStreamingServer::isRunning)
         return false;
 
-    for (auto & whitelistedIPEntry : RDCStreamingServer::whitelistedClientsVector)
-        if (whitelistedIPEntry == whitelistedClient)
-            return false;
-
-    while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
-    RDCStreamingServer::whitelistedClientsVector.push_back(whitelistedClient);
-
-    pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
-
     pthread_t streamDisplayThread;
-    pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, nullptr);
+    pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, &clientSocketAddr);
     pthread_detach(streamDisplayThread);    
 
     return true;
@@ -108,6 +106,8 @@ void RDCStreamingServer::GatherDisplayInfo()
                 RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->pixel = XGetPixel(displayImage, colorArrayX, colorArrayY);
                 XQueryColor(RDCStreamingServer::serverDisplay, defaultColormap, RDCStreamingServer::colorArray[colorArrayY][colorArrayX]);
             }
+
+        RDCStreamingServer::SerializeColorArray(defaultScreen->height, defaultScreen->width);
     }
 
     for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
@@ -122,13 +122,50 @@ void RDCStreamingServer::GatherDisplayInfo()
     delete displayImage;
 }
 
+void RDCStreamingServer::SerializeColorArray(int screenHeight, int screenWidth)
+{
+    vector<string> serializedColorArray;
+    
+    string vectorEntry = "";
+    string stringToAdd = "";
+    for (int colorArrayY = 0; colorArrayY < screenHeight; ++colorArrayY)
+        for (int colorArrayX = 0; colorArrayX < screenWidth; ++colorArrayX)
+        {
+            stringToAdd = to_string(colorArrayY) + ' ' + to_string(colorArrayX) + ' ' + to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->red) + ' ' +
+                to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->green) + ' ' + to_string(RDCStreamingServer::colorArray[colorArrayY][colorArrayX]->blue) + ' ';
+
+            if (vectorEntry.size() + stringToAdd.size() <= SOCKET_BUFFER_LENGTH)
+                vectorEntry += stringToAdd;
+            else
+            {
+                serializedColorArray.push_back(vectorEntry);
+                vectorEntry = "";
+            }
+        }
+
+    RDCStreamingServer::colorArraySerialized = serializedColorArray;
+}
+
 void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
 {
-    while (RDCStreamingServer::isRunning)
+    struct sockaddr_in clientSocketAddr = * ((struct sockaddr_in *)threadArguments);
+
+    if (RDCStreamingServer::isRunning)
     {
-        send multiple times
-        read once to confirm
+        Screen * defaultScreen = DefaultScreenOfDisplay(RDCStreamingServer::serverDisplay);
+
+        int screenHeight = defaultScreen->height;
+        int screenWidth = defaultScreen->width;
+
+        delete defaultScreen;
+
+        sendto(RDCStreamingServer::serverSocket, &screenHeight, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
+        sendto(RDCStreamingServer::serverSocket, &screenWidth, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
     }
+
+    while (RDCStreamingServer::isRunning)
+        for (auto & serializedColorArrayEntry : RDCStreamingServer::colorArraySerialized)
+            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), serializedColorArrayEntry.size(), MSG_DONTWAIT, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
 
     return nullptr;
 }

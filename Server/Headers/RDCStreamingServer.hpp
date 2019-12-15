@@ -1,4 +1,4 @@
-#include <pthread.h>
+#define SOCKET_BUFFER_LENGTH 4096
 
 #include <vector>
 #include <string>
@@ -14,20 +14,21 @@ using namespace std;
 
 class RDCStreamingServer
 {
+    public:  static bool IsGraphicsCompatible();
     public:  static bool Start();
     public:  static bool Stop();
 
-    public:  static bool AddWhitelistedClient(int whitelistedClient);
+    public:  static bool AddWhitelistedClient(struct sockaddr_in clientSocketAddr);
 
     private: static void GatherDisplayInfo();
+    private: static void SerializeColorArray(int screenHeight, int screenWidth);
 
     private: static int serverSocket;
     private: static unsigned int serverPort;
     private: static bool isRunning;
-    private: static vector<int> whitelistedClientsVector;
-    private: static pthread_mutex_t whitelistedIPsVectorMutex;
     private: static Display * serverDisplay;
     private: static XColor *** colorArray;
+    private: static vector<string> colorArraySerialized;
 
     private: static void * StreamDisplayThreadFunc(void * threadArguments);
 
