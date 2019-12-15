@@ -20,7 +20,6 @@ class RDCStreamingServer
 
     public:  static bool AddWhitelistedClient(struct sockaddr_in clientSocketAddr);
 
-    private: static void GatherDisplayInfo();
     private: static void SerializeColorArray(int screenHeight, int screenWidth);
 
     private: static int serverSocket;
@@ -30,6 +29,7 @@ class RDCStreamingServer
     private: static XColor *** colorArray;
     private: static vector<string> colorArraySerialized;
 
+    private: static void * GatherDisplayInfoThreadFunc(void * threadArguments);
     private: static void * StreamDisplayThreadFunc(void * threadArguments);
 
     public:  static const unsigned int serverPort_Get();

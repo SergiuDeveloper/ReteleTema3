@@ -130,6 +130,8 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
 
         if (this->serverRunning && operationSuccess)
         {
+            clientSocket.clientSocketAddr = clientSocketAddr;
+
             clientConnectedThreadParameters = Server::ClientConnectedThreadParameters(this, clientSocket, clientSocketAddr);
 
             pthread_create(&clientHandlingThread, nullptr, (FunctionPointer)&Server::ClientHandlingThreadFunctionHelper, &clientConnectedThreadParameters);

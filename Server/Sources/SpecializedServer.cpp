@@ -36,6 +36,17 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
         
         return localServerSuccessState;
     }
+
+    SpecializedServer::singletonInstance = this;
+
+    if (RDCStreamingServer::IsGraphicsCompatible())
+    {
+        bool rdcStreamingServerStarted = RDCStreamingServer::Start();
+
+        while (!pthread_mutex_trylock(&this->consoleMutex));
+        cout<<(rdcStreamingServerStarted ? SUCCESS_RDC_STREAMING_SERVER_STARTED : FAILURE_RDC_STREAMING_SERVER_STARTED)<<endl;
+        pthread_mutex_unlock(&this->consoleMutex);
+    }
     
     return successState;
 }
@@ -46,6 +57,12 @@ SuccessState SpecializedServer::Stop()
     
     pthread_mutex_destroy(&this->consoleMutex);
     pthread_mutex_destroy(&SpecializedServer::singletonInstanceMutex);
+
+    if (RDCStreamingServer::IsGraphicsCompatible() && RDCStreamingServer::isRunning_Get())
+    {
+        bool rdcStreamingServerStopped = RDCStreamingServer::Stop();
+        cout<<(rdcStreamingServerStopped ? SUCCESS_RDC_STREAMING_SERVER_STOPPED : FAILURE_RDC_STREAMING_SERVER_STOPPED)<<endl;
+    }
     
     return Server::Stop();
 }
@@ -499,6 +516,25 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
     while (!pthread_mutex_trylock(&this->consoleMutex));
     cout<<SUCCESS_RECEIVED_REQUEST(clientSocket.clientIP, clientSocket.clientMAC, clientRequest)<<endl;
     pthread_mutex_unlock(&this->consoleMutex);
+
+    string messageConnectRDC = MESSAGE_CONNECT_RDC;
+    if (clientRequest.size() == messageConnectRDC.size())
+    {
+        string requestUpper = "";
+        for (auto & clientRequestChar : clientRequest)
+            if (clientRequestChar >= 'a' && clientRequestChar <= 'z')
+                requestUpper += (clientRequestChar + 'A' - 'a');
+            else
+                requestUpper += clientRequestChar;
+
+        if (requestUpper == MESSAGE_CONNECT_RDC)
+        {
+            bool addedWhitelistedClientToRDCStreaming = RDCStreamingServer::AddWhitelistedClient(clientSocket.clientSocketAddr);
+            cout<<(addedWhitelistedClientToRDCStreaming ? SUCCESS_ADDED_CLIENT_TO_RDC_STREAMING : FAILURE_ADDED_CLIENT_TO_RDC_STREAMING)<<endl;
+
+            return;
+        }            
+    }
 
     char hostName[HOST_NAME_MAX + 1];
     gethostname(hostName, HOST_NAME_MAX);

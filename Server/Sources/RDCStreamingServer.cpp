@@ -12,9 +12,7 @@ vector<string> RDCStreamingServer::colorArraySerialized;
 bool RDCStreamingServer::IsGraphicsCompatible()
 {
     Display * xDisplay = XOpenDisplay(nullptr);
-    bool isGraphicsCompatible = (XSetStipple != nullptr);
-
-    delete xDisplay;
+    bool isGraphicsCompatible = (xDisplay != nullptr);
 
     return isGraphicsCompatible;
 }
@@ -48,7 +46,9 @@ bool RDCStreamingServer::Start()
 
     RDCStreamingServer::serverPort = ntohs(serverSocketAddr.sin_port);
 
-    GatherDisplayInfo();
+    pthread_t gatherDisplayInfoThread;
+    pthread_create(&gatherDisplayInfoThread, nullptr, RDCStreamingServer::GatherDisplayInfoThreadFunc, nullptr);
+    pthread_detach(gatherDisplayInfoThread);
 
     RDCStreamingServer::isRunning = true;
 
@@ -61,7 +61,6 @@ bool RDCStreamingServer::Stop()
         return false;
 
     RDCStreamingServer::isRunning = false;
-    delete RDCStreamingServer::serverDisplay;
 
     close(RDCStreamingServer::serverSocket);
 
@@ -80,7 +79,7 @@ bool RDCStreamingServer::AddWhitelistedClient(struct sockaddr_in clientSocketAdd
     return true;
 }
 
-void RDCStreamingServer::GatherDisplayInfo()
+void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
 {
     Screen * defaultScreen = DefaultScreenOfDisplay(RDCStreamingServer::serverDisplay);
 
@@ -120,6 +119,8 @@ void RDCStreamingServer::GatherDisplayInfo()
 
     delete defaultScreen;
     delete displayImage;
+
+    return nullptr;
 }
 
 void RDCStreamingServer::SerializeColorArray(int screenHeight, int screenWidth)
@@ -163,9 +164,19 @@ void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
         sendto(RDCStreamingServer::serverSocket, &screenWidth, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
     }
 
-    while (RDCStreamingServer::isRunning)
+    bool clientResponse;
+    socklen_t clientSocketAddrLength;
+    bool clientActive = true;
+
+    while (RDCStreamingServer::isRunning && clientActive)
+    {
+        clientSocketAddrLength = sizeof(clientSocketAddr);
+
         for (auto & serializedColorArrayEntry : RDCStreamingServer::colorArraySerialized)
-            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), serializedColorArrayEntry.size(), MSG_DONTWAIT, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
+            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), serializedColorArrayEntry.size(), MSG_DONTWAIT, (struct sockaddr *)&clientSocketAddr, clientSocketAddrLength);
+
+        clientActive = (recvfrom(RDCStreamingServer::serverSocket, &clientResponse, sizeof(clientResponse), MSG_DONTWAIT, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength) != 0);
+    }
 
     return nullptr;
 }
