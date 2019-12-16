@@ -529,6 +529,9 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 
         if (requestUpper == MESSAGE_CONNECT_RDC)
         {
+            const unsigned int RDCStreamingServerPort = RDCStreamingServer::serverPort_Get();
+            write(clientSocket.clientSocketDescriptor, &RDCStreamingServerPort, sizeof(RDCStreamingServerPort));
+
             bool addedWhitelistedClientToRDCStreaming = RDCStreamingServer::AddWhitelistedClient(clientSocket.clientSocketAddr);
             cout<<(addedWhitelistedClientToRDCStreaming ? SUCCESS_ADDED_CLIENT_TO_RDC_STREAMING : FAILURE_ADDED_CLIENT_TO_RDC_STREAMING)<<endl;
 

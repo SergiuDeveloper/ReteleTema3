@@ -1,8 +1,9 @@
 g++  								\
 -O3 								\
 -Wno-unused-result						\
-Sources/RDCStreamingClient.cpp Sources/Client.cpp		\
-Sources/Encryption.cpp Sources/SuccessState.cpp			\ 
+-ISources							\
+Sources/RDCStreamingClient.cpp Sources/Client.cpp 		\
+Sources/Encryption.cpp Sources/SuccessState.cpp 		\
 Sources/Main.cpp main.cpp					\
 -o Bin/Client							\
--lcrypto -lncurses -lX11
+-lcrypto -lncurses -lpthread -lX11

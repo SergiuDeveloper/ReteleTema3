@@ -183,6 +183,9 @@ SuccessState Client::Disconnect()
     if (!this->isConnected)
         return SuccessState(false, ERROR_NO_CONNECTION_ESTABLISHED);
 
+    if (RDCStreamingClient::isRunning_Get())
+        RDCStreamingClient::Stop();
+
     close(this->serverSocket);
 
     this->isConnected = false;
@@ -194,13 +197,17 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
 {
     string quitCommand = COMMAND_QUIT_CLIENT;
     string helpCommand = COMMAND_HELP;
+    string connectRDCCommand = COMMAND_CONNECT_RDC;
 
     int readResult;
+    unsigned int rdcStreamingServerPort;
+    bool successfullyOpenedRDCStreamingClient;
     SuccessState successState(false, INVALID_STRING);
     string requestCommand;
     Encryption::Types::CharArray requestCommandCharArray;
     bool isQuitCommand;
     bool isHelpCommand;
+    bool isConnectRDCCommand;
     while (this->isConnected)
     {
         successState = this->GetCommandToSend();
@@ -248,6 +255,52 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
             }
         }
 
+        if (requestCommand.size() == connectRDCCommand.size())
+        {
+            isConnectRDCCommand = true;
+             for (size_t requestCommandIterator = 0; requestCommandIterator < requestCommand.size(); ++requestCommandIterator)
+                if (requestCommand[requestCommandIterator] != connectRDCCommand[requestCommandIterator] && toupper(requestCommand[requestCommandIterator]) != connectRDCCommand[requestCommandIterator])
+                    isConnectRDCCommand = false;
+
+            if (isConnectRDCCommand)
+            {
+                readResult = (read(this->serverSocket, &rdcStreamingServerPort, sizeof(rdcStreamingServerPort)));
+                if (readResult <= 0)
+                {
+                    cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+                    if (readResult == 0)
+                    {
+                        this->Disconnect();
+                        return;
+                    }
+
+                    cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                    cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                    continue;
+                }
+
+                if (!RDCStreamingClient::IsGraphicsCompatible())
+                {
+                    cout<<ERROR_NOT_GRAPHICS_COMPATIBLE<<endl;
+
+                    cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                    cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                    continue;
+                }
+
+                successfullyOpenedRDCStreamingClient = (RDCStreamingClient::Start(this->serverIP, rdcStreamingServerPort));
+                if (successfullyOpenedRDCStreamingClient)
+                    cout<<SUCCESS_OPEN_RDC_STREAMING_CLIENT<<endl;
+                else
+                    cout<<ERROR_OPEN_RDC_STREAMING_CLIENT<<endl;
+
+                cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                continue;
+            }
+        }
+
         requestCommandCharArray = Encryption::Algorithms::Vigenere::Encrypt(requestCommand, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
         
         write(this->serverSocket, &requestCommandCharArray.charArrayLength, sizeof(size_t));
@@ -265,6 +318,9 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
                 this->Disconnect();
                 return;
             }
+
+            cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+            cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
             continue;
         }
         
@@ -280,6 +336,9 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
                 this->Disconnect();
                 return;
             }
+
+            cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+            cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
             continue;
         }
 

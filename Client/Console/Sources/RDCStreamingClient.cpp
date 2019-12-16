@@ -3,9 +3,10 @@
 string RDCStreamingClient::serverIP;
 unsigned int RDCStreamingClient::serverPort;
 int RDCStreamingClient::serverSocket;
+struct sockaddr_in RDCStreamingClient::serverSocketAddr;
 bool RDCStreamingClient::isRunning = false;
 Window RDCStreamingClient::graphicsWindow;
-unsigned long ** RDCStreamingclient::screenColors;
+unsigned long ** RDCStreamingClient::screenColors;
 int RDCStreamingClient::windowHeight;
 int RDCStreamingClient::windowWidth;
 
