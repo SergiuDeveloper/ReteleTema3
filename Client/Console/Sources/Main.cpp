@@ -25,6 +25,12 @@ bool Main::Initialize(int argumentsCount, char ** argumentsArray)
     {
         size_t delimiterPosition = argumentsList[0].find(':');
         
+        if (delimiterPosition == string::npos)
+        {
+            cout<<ERROR_COMMAND_LINE_ARGUMENTS<<endl;
+            return false;
+        }
+
         serverIP = argumentsList[0].substr(0, delimiterPosition);
         serverPort = atoi(argumentsList[0].erase(0, delimiterPosition + 1).c_str());
     }

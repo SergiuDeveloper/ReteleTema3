@@ -199,8 +199,15 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
     string helpCommand = COMMAND_HELP;
     string connectRDCCommand = COMMAND_CONNECT_RDC;
 
-    int readResult;
+    Encryption::Types::CharArray connectRDCCommandEncrypted;
+    size_t rdcStreamingServerPortEncryptedLength;
+    char * rdcStreamingServerPortEncrypted;
+    Encryption::Types::CharArray rdcStreamingServerPortCharArray;
+
+    string rdcStreamingServerPortString;
     unsigned int rdcStreamingServerPort;
+
+    int readResult;
     bool successfullyOpenedRDCStreamingClient;
     SuccessState successState(false, INVALID_STRING);
     string requestCommand;
@@ -264,7 +271,13 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
 
             if (isConnectRDCCommand)
             {
-                readResult = (read(this->serverSocket, &rdcStreamingServerPort, sizeof(rdcStreamingServerPort)));
+                connectRDCCommandEncrypted = Encryption::Algorithms::Vigenere::Encrypt(connectRDCCommand, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+                write(this->serverSocket, &connectRDCCommandEncrypted.charArrayLength, sizeof(size_t));
+                write(this->serverSocket, connectRDCCommandEncrypted.charArray, connectRDCCommandEncrypted.charArrayLength);
+
+
+                readResult = (read(this->serverSocket, &rdcStreamingServerPortEncryptedLength, sizeof(size_t)));
                 if (readResult <= 0)
                 {
                     cout<<ERROR_COMMAND_EXECUTION<<endl;
@@ -279,6 +292,31 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
                     cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
                     continue;
                 }
+
+                rdcStreamingServerPortEncrypted = new char[rdcStreamingServerPortEncryptedLength];
+                readResult = (read(this->serverSocket, rdcStreamingServerPortEncrypted, rdcStreamingServerPortEncryptedLength));
+                if (readResult <= 0)
+                {
+                    cout<<ERROR_COMMAND_EXECUTION<<endl;
+
+                    if (readResult == 0)
+                    {
+                        this->Disconnect();
+                        return;
+                    }
+
+                    cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                    cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                    continue;
+                }
+
+                Encryption::Types::CharArray rdcStreamingServerPortCharArray(rdcStreamingServerPortEncrypted, rdcStreamingServerPortEncryptedLength);
+                rdcStreamingServerPortString = Encryption::Algorithms::Vigenere::Decrypt(rdcStreamingServerPortCharArray, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH,
+                    VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+                rdcStreamingServerPort = stoul(rdcStreamingServerPortString);
+
+                delete rdcStreamingServerPortEncrypted;
 
                 if (!RDCStreamingClient::IsGraphicsCompatible())
                 {

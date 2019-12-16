@@ -527,10 +527,15 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
             else
                 requestUpper += clientRequestChar;
 
-        if (requestUpper == MESSAGE_CONNECT_RDC)
+        if (requestUpper == messageConnectRDC)
         {
-            const unsigned int RDCStreamingServerPort = RDCStreamingServer::serverPort_Get();
-            write(clientSocket.clientSocketDescriptor, &RDCStreamingServerPort, sizeof(RDCStreamingServerPort));
+            unsigned int rdcStreamingServerPort = RDCStreamingServer::serverPort_Get();
+            string rdcStreamingServerPortString = to_string(rdcStreamingServerPort);
+            Encryption::Types::CharArray rdcStreamingServerPortStringEncrypted = Encryption::Algorithms::Vigenere::Encrypt(rdcStreamingServerPortString, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC),
+                VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+            write(clientSocket.clientSocketDescriptor, &rdcStreamingServerPortStringEncrypted.charArrayLength, sizeof(size_t));
+            write(clientSocket.clientSocketDescriptor, rdcStreamingServerPortStringEncrypted.charArray, rdcStreamingServerPortStringEncrypted.charArrayLength);
 
             bool addedWhitelistedClientToRDCStreaming = RDCStreamingServer::AddWhitelistedClient(clientSocket.clientSocketAddr);
             cout<<(addedWhitelistedClientToRDCStreaming ? SUCCESS_ADDED_CLIENT_TO_RDC_STREAMING : FAILURE_ADDED_CLIENT_TO_RDC_STREAMING)<<endl;
