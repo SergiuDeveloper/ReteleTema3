@@ -271,11 +271,19 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
 
             if (isConnectRDCCommand)
             {
+                if (!RDCStreamingClient::IsGraphicsCompatible())
+                {
+                    cout<<ERROR_NOT_GRAPHICS_COMPATIBLE<<endl;
+
+                    cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
+                    cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
+                    continue;
+                }
+
                 connectRDCCommandEncrypted = Encryption::Algorithms::Vigenere::Encrypt(connectRDCCommand, VIGENERE_KEY(this->serverPort, this->clientMAC), VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
 
                 write(this->serverSocket, &connectRDCCommandEncrypted.charArrayLength, sizeof(size_t));
                 write(this->serverSocket, connectRDCCommandEncrypted.charArray, connectRDCCommandEncrypted.charArrayLength);
-
 
                 readResult = (read(this->serverSocket, &rdcStreamingServerPortEncryptedLength, sizeof(size_t)));
                 if (readResult <= 0)
@@ -317,15 +325,6 @@ void Client::ClientLifecycle(string currentUser, string commandExecutionLocation
                 rdcStreamingServerPort = stoul(rdcStreamingServerPortString);
 
                 delete rdcStreamingServerPortEncrypted;
-
-                if (!RDCStreamingClient::IsGraphicsCompatible())
-                {
-                    cout<<ERROR_NOT_GRAPHICS_COMPATIBLE<<endl;
-
-                    cout<<COLOR_GREEN<<currentUser<<COLOR_DEFAULT<<':';
-                    cout<<COLOR_BLUE<<commandExecutionLocation<<COLOR_DEFAULT<<"$ ";
-                    continue;
-                }
 
                 successfullyOpenedRDCStreamingClient = (RDCStreamingClient::Start(this->serverIP, rdcStreamingServerPort));
                 if (successfullyOpenedRDCStreamingClient)

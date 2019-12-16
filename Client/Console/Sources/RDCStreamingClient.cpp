@@ -67,10 +67,11 @@ bool RDCStreamingClient::InitializeGraphics()
 {
     socklen_t serverSocketAddrLength = sizeof(RDCStreamingClient::serverSocketAddr);
 
-    if (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowHeight, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0)
-        return false;
-    if (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowWidth, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0)
-        return false;
+    bool connectionRequest = true;
+    while (sendto(RDCStreamingClient::serverSocket, &connectionRequest, sizeof(connectionRequest), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, serverSocketAddrLength) <= 0);
+
+    while (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowHeight, sizeof(int), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0);
+    while (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowWidth, sizeof(int), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0);
 
     Display * defaultDisplay = XOpenDisplay(nullptr);
     if (defaultDisplay == nullptr)
@@ -87,6 +88,8 @@ bool RDCStreamingClient::InitializeGraphics()
         WhitePixel(defaultDisplay, defaultScreen));
     XSelectInput(defaultDisplay, RDCStreamingClient::graphicsWindow, ExposureMask | KeyPressMask);
     XMapWindow(defaultDisplay, RDCStreamingClient::graphicsWindow);
+
+    return true;
 }
 
 void * RDCStreamingClient::GetGraphicsInformationThreadFunc(void * threadArguments)

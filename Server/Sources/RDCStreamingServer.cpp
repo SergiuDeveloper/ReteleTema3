@@ -3,8 +3,8 @@
 int RDCStreamingServer::serverSocket;
 unsigned int RDCStreamingServer::serverPort;
 bool RDCStreamingServer::isRunning = false;
-vector<string> whitelistedIPsVector;
-pthread_mutex_t whitelistedIPsVectorMutex;
+vector<string> RDCStreamingServer::whitelistedIPsVector;
+pthread_mutex_t RDCStreamingServer::whitelistedIPsVectorMutex;
 Display * RDCStreamingServer::serverDisplay;
 unsigned long ** RDCStreamingServer::colorArray;
 vector<string> RDCStreamingServer::colorArraySerialized;
@@ -48,6 +48,13 @@ bool RDCStreamingServer::Start()
 
     RDCStreamingServer::isRunning = true;
 
+    pthread_mutex_init(&RDCStreamingServer::whitelistedIPsVectorMutex, nullptr);
+    RDCStreamingServer::whitelistedIPsVector.clear();
+
+    pthread_t receiveConnectionsThread;
+    pthread_create(&receiveConnectionsThread, nullptr, RDCStreamingServer::ReceiveConnectionsThreadFunc, nullptr);
+    pthread_detach(receiveConnectionsThread);
+
     pthread_t gatherDisplayInfoThread;
     pthread_create(&gatherDisplayInfoThread, nullptr, RDCStreamingServer::GatherDisplayInfoThreadFunc, nullptr);
     pthread_detach(gatherDisplayInfoThread);
@@ -62,6 +69,8 @@ bool RDCStreamingServer::Stop()
 
     RDCStreamingServer::isRunning = false;
 
+    pthread_mutex_destroy(&RDCStreamingServer::whitelistedIPsVectorMutex);
+
     close(RDCStreamingServer::serverSocket);
 
     return true;
@@ -72,9 +81,9 @@ bool RDCStreamingServer::AddWhitelistedClient(struct sockaddr_in clientSocketAdd
     if (!RDCStreamingServer::isRunning)
         return false;
 
-    pthread_t streamDisplayThread;
-    pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, &clientSocketAddr);
-    pthread_detach(streamDisplayThread);    
+    while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
+    RDCStreamingServer::whitelistedIPsVector.push_back(inet_ntoa(clientSocketAddr.sin_addr));
+    pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
 
     return true;
 }
@@ -92,15 +101,16 @@ void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
     int defaultColormap = defaultScreen->cmap;
 
     while (RDCStreamingServer::isRunning)
-    {
-        displayImage = XGetImage(RDCStreamingServer::serverDisplay, rootWindow, 0, 0, defaultScreen->width, defaultScreen->height, AllPlanes, XYPixmap);
+        if (RDCStreamingServer::whitelistedIPsVector.size() > 0)
+        {
+            displayImage = XGetImage(RDCStreamingServer::serverDisplay, rootWindow, 0, 0, defaultScreen->width, defaultScreen->height, AllPlanes, XYPixmap);
 
-        for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
-            for (int colorArrayX = 0; colorArrayX < defaultScreen->width; ++colorArrayX)
-                RDCStreamingServer::colorArray[colorArrayY][colorArrayX] = XGetPixel(displayImage, colorArrayX, colorArrayY);
+            for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
+                for (int colorArrayX = 0; colorArrayX < defaultScreen->width; ++colorArrayX)
+                    RDCStreamingServer::colorArray[colorArrayY][colorArrayX] = XGetPixel(displayImage, colorArrayX, colorArrayY);
 
-        RDCStreamingServer::SerializeColorArray(defaultScreen->height, defaultScreen->width);
-    }
+            RDCStreamingServer::SerializeColorArray(defaultScreen->height, defaultScreen->width);
+        }
 
     for (int colorArrayY = 0; colorArrayY < defaultScreen->height; ++colorArrayY)
         delete RDCStreamingServer::colorArray[colorArrayY];
@@ -135,6 +145,32 @@ void RDCStreamingServer::SerializeColorArray(int screenHeight, int screenWidth)
     RDCStreamingServer::colorArraySerialized = serializedColorArray;
 }
 
+
+void * RDCStreamingServer::ReceiveConnectionsThreadFunc(void * threadArguments)
+{
+    struct sockaddr_in clientSocketAddr;
+    socklen_t clientSocketAddrLength;
+
+    bool connectionRequest;
+    string clientIP;
+    while (RDCStreamingServer::isRunning)
+        if (recvfrom(RDCStreamingServer::serverSocket, &connectionRequest, sizeof(connectionRequest), 0, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength) > 0)
+        {
+            clientIP = inet_ntoa(clientSocketAddr.sin_addr);
+
+            for (auto & whitelistedIP : RDCStreamingServer::whitelistedIPsVector)
+                if (whitelistedIP == clientIP)
+                {
+                    pthread_t streamDisplayThread;
+                    pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, &clientSocketAddr);
+
+                    continue;
+                }
+        }
+
+    return nullptr;
+}
+
 void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
 {
     struct sockaddr_in clientSocketAddr = * ((struct sockaddr_in *)threadArguments);
@@ -148,8 +184,8 @@ void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
 
         delete defaultScreen;
 
-        sendto(RDCStreamingServer::serverSocket, &screenHeight, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
-        sendto(RDCStreamingServer::serverSocket, &screenWidth, sizeof(int), MSG_CONFIRM, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
+        while (sendto(RDCStreamingServer::serverSocket, &screenHeight, sizeof(int), 0, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr)) <= 0);
+        while (sendto(RDCStreamingServer::serverSocket, &screenWidth, sizeof(int), 0, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr)) <= 0);
     }
 
     bool clientResponse;

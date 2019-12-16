@@ -27,11 +27,14 @@ class RDCStreamingServer
     private: static int serverSocket;
     private: static unsigned int serverPort;
     private: static bool isRunning;
+    private: static vector<string> whitelistedIPsVector;
+    private: static pthread_mutex_t whitelistedIPsVectorMutex;
     private: static Display * serverDisplay;
     private: static unsigned long ** colorArray;
     private: static vector<string> colorArraySerialized;
 
     private: static void * GatherDisplayInfoThreadFunc(void * threadArguments);
+    private: static void * ReceiveConnectionsThreadFunc(void * threadArguments);
     private: static void * StreamDisplayThreadFunc(void * threadArguments);
 
     public:  static const unsigned int serverPort_Get();
