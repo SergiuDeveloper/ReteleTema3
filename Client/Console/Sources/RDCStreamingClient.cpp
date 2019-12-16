@@ -33,6 +33,9 @@ bool RDCStreamingClient::Start(string serverIP, unsigned int serverPort)
     RDCStreamingClient::serverSocketAddr.sin_port = htons(serverPort);
     inet_pton(AF_INET, serverIP.c_str(), &RDCStreamingClient::serverSocketAddr.sin_addr);
 
+    if (connect(RDCStreamingClient::serverSocket, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, sizeof(RDCStreamingClient::serverSocketAddr)) == -1)
+        return false;
+
     if (!RDCStreamingClient::InitializeGraphics())
     {
         close(RDCStreamingClient::serverSocket);
@@ -84,7 +87,7 @@ bool RDCStreamingClient::InitializeGraphics()
     int defaultScreen = DefaultScreen(defaultDisplay);
     Window rootWindow = RootWindow(defaultDisplay, defaultScreen);
 
-    RDCStreamingClient::graphicsWindow = XCreateSimpleWindow(defaultDisplay, rootWindow, 0, 0, RDCStreamingClient::windowWidth, RDCStreamingClient::windowHeight, 1, BlackPixel(defaultDisplay, defaultScreen),
+    RDCStreamingClient::graphicsWindow = XCreateSimpleWindow(defaultDisplay, rootWindow, 0, 0, RDCStreamingClient::windowWidth, RDCStreamingClient::windowHeight, 0, BlackPixel(defaultDisplay, defaultScreen),
         WhitePixel(defaultDisplay, defaultScreen));
     XSelectInput(defaultDisplay, RDCStreamingClient::graphicsWindow, ExposureMask | KeyPressMask);
     XMapWindow(defaultDisplay, RDCStreamingClient::graphicsWindow);

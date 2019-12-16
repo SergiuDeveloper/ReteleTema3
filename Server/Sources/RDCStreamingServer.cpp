@@ -84,7 +84,7 @@ bool RDCStreamingServer::AddWhitelistedClient(struct sockaddr_in clientSocketAdd
     while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
     RDCStreamingServer::whitelistedIPsVector.push_back(inet_ntoa(clientSocketAddr.sin_addr));
     pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
-
+    
     return true;
 }
 
@@ -145,11 +145,10 @@ void RDCStreamingServer::SerializeColorArray(int screenHeight, int screenWidth)
     RDCStreamingServer::colorArraySerialized = serializedColorArray;
 }
 
-
 void * RDCStreamingServer::ReceiveConnectionsThreadFunc(void * threadArguments)
 {
     struct sockaddr_in clientSocketAddr;
-    socklen_t clientSocketAddrLength;
+    socklen_t clientSocketAddrLength = sizeof(clientSocketAddr);
 
     bool connectionRequest;
     string clientIP;
@@ -157,12 +156,13 @@ void * RDCStreamingServer::ReceiveConnectionsThreadFunc(void * threadArguments)
         if (recvfrom(RDCStreamingServer::serverSocket, &connectionRequest, sizeof(connectionRequest), 0, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength) > 0)
         {
             clientIP = inet_ntoa(clientSocketAddr.sin_addr);
-
+            
             for (auto & whitelistedIP : RDCStreamingServer::whitelistedIPsVector)
                 if (whitelistedIP == clientIP)
                 {
                     pthread_t streamDisplayThread;
                     pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, &clientSocketAddr);
+                    pthread_detach(streamDisplayThread);
 
                     continue;
                 }
