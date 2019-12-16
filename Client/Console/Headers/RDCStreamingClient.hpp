@@ -26,6 +26,7 @@ class RDCStreamingClient
     private: static int serverSocket;
     private: static sockaddr_in serverSocketAddr;
     private: static bool isRunning;
+    private: static Display * defaultDisplay;
     private: static Window graphicsWindow;
     private: static unsigned long ** screenColors;
     private: static int windowHeight;

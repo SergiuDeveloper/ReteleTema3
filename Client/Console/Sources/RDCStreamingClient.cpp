@@ -5,6 +5,7 @@ unsigned int RDCStreamingClient::serverPort;
 int RDCStreamingClient::serverSocket;
 struct sockaddr_in RDCStreamingClient::serverSocketAddr;
 bool RDCStreamingClient::isRunning = false;
+Display * RDCStreamingClient::RDCStreamingClient::defaultDisplay;
 Window RDCStreamingClient::graphicsWindow;
 unsigned long ** RDCStreamingClient::screenColors;
 int RDCStreamingClient::windowHeight;
@@ -35,21 +36,22 @@ bool RDCStreamingClient::Start(string serverIP, unsigned int serverPort)
 
     if (connect(RDCStreamingClient::serverSocket, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, sizeof(RDCStreamingClient::serverSocketAddr)) == -1)
         return false;
-
+    
     if (!RDCStreamingClient::InitializeGraphics())
     {
         close(RDCStreamingClient::serverSocket);
         return false;
     }
 
+    RDCStreamingClient::isRunning = true;
+
     pthread_t getGraphicsInformationThread;
     pthread_create(&getGraphicsInformationThread, nullptr, RDCStreamingClient::GetGraphicsInformationThreadFunc, nullptr);
+    pthread_detach(getGraphicsInformationThread);
 
     pthread_t graphicsHandlingThread;
     pthread_create(&graphicsHandlingThread, nullptr, RDCStreamingClient::GraphicsHandlingThreadFunc, nullptr);
     pthread_detach(graphicsHandlingThread);
-
-    RDCStreamingClient::isRunning = true;
 
     return true;
 }
@@ -76,21 +78,23 @@ bool RDCStreamingClient::InitializeGraphics()
     while (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowHeight, sizeof(int), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0);
     while (recvfrom(RDCStreamingClient::serverSocket, &RDCStreamingClient::windowWidth, sizeof(int), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength) <= 0);
 
-    Display * defaultDisplay = XOpenDisplay(nullptr);
-    if (defaultDisplay == nullptr)
+    RDCStreamingClient::defaultDisplay = XOpenDisplay(nullptr);
+    if (RDCStreamingClient::defaultDisplay == nullptr)
         return false;
+
+    XInitThreads();
 
     RDCStreamingClient::screenColors = new unsigned long *[RDCStreamingClient::windowHeight];
     for (int screenColorsY = 0; screenColorsY < RDCStreamingClient::windowHeight; ++screenColorsY)
         RDCStreamingClient::screenColors[screenColorsY] = new unsigned long[RDCStreamingClient::windowWidth];
     
-    int defaultScreen = DefaultScreen(defaultDisplay);
-    Window rootWindow = RootWindow(defaultDisplay, defaultScreen);
+    int defaultScreen = DefaultScreen(RDCStreamingClient::defaultDisplay);
+    Window rootWindow = RootWindow(RDCStreamingClient::defaultDisplay, defaultScreen);
 
-    RDCStreamingClient::graphicsWindow = XCreateSimpleWindow(defaultDisplay, rootWindow, 0, 0, RDCStreamingClient::windowWidth, RDCStreamingClient::windowHeight, 0, BlackPixel(defaultDisplay, defaultScreen),
-        WhitePixel(defaultDisplay, defaultScreen));
-    XSelectInput(defaultDisplay, RDCStreamingClient::graphicsWindow, ExposureMask | KeyPressMask);
-    XMapWindow(defaultDisplay, RDCStreamingClient::graphicsWindow);
+    RDCStreamingClient::graphicsWindow = XCreateSimpleWindow(RDCStreamingClient::defaultDisplay, rootWindow, 0, 0, RDCStreamingClient::windowWidth, RDCStreamingClient::windowHeight, 0, BlackPixel(RDCStreamingClient::defaultDisplay, defaultScreen),
+        WhitePixel(RDCStreamingClient::defaultDisplay, defaultScreen));
+    XSelectInput(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow, ExposureMask);
+    XMapWindow(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow);
 
     return true;
 }
@@ -105,62 +109,64 @@ void * RDCStreamingClient::GetGraphicsInformationThreadFunc(void * threadArgumen
     istringstream receivedBufferStream;
     char receivedBufferCString[SOCKET_BUFFER_LENGTH];
     int xCoord, yCoord;
+    unsigned long receivedPixel;
     while (RDCStreamingClient::isRunning)
-    {
-        receivedBytes = (recvfrom(RDCStreamingClient::serverSocket, receivedBufferCString, SOCKET_BUFFER_LENGTH, MSG_DONTWAIT, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength));
-        
-        bool serverRunning = (receivedBytes != 0);
-        if (!serverRunning)
+        if (RDCStreamingClient::screenColors != nullptr)
         {
-            RDCStreamingClient::Stop();
-            return nullptr;
+            receivedBytes = (recvfrom(RDCStreamingClient::serverSocket, receivedBufferCString, SOCKET_BUFFER_LENGTH, 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength));
+            
+            serverRunning = (receivedBytes != 0);
+            if (!serverRunning)
+            {
+                RDCStreamingClient::Stop();
+                return nullptr;
+            }
+            else if (receivedBytes < 0)
+                continue;
+
+            receivedBufferCString[receivedBytes] = '\0';
+            receivedBuffer = receivedBufferCString;
+
+            receivedBufferStream = istringstream(receivedBuffer);
+            while (receivedBufferStream>>yCoord>>xCoord>>receivedPixel)
+                RDCStreamingClient::screenColors[yCoord][xCoord] = receivedPixel;
         }
-        else if (receivedBytes < 0)
-            continue;
-
-        receivedBufferCString[receivedBytes] = '\0';
-        receivedBuffer = receivedBufferCString;
-
-        receivedBufferStream = istringstream(receivedBuffer);
-        receivedBufferStream>>yCoord>>xCoord;
-        receivedBufferStream>>RDCStreamingClient::screenColors[yCoord][xCoord];
-    }
 
     return nullptr;
 }
 
 void * RDCStreamingClient::GraphicsHandlingThreadFunc(void * threadArguments)
 {
-    Display * defaultDisplay = XOpenDisplay(nullptr);
+    XGCValues pointGCValue;
+    pointGCValue.cap_style = CapButt;
+    pointGCValue.join_style = JoinBevel;
+
+    GC pointGC = XCreateGC(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow, GCCapStyle | GCJoinStyle, &pointGCValue);
+    XSetFillStyle(RDCStreamingClient::defaultDisplay, pointGC, FillSolid);
 
     XEvent thrownEvent;
-    XGCValues pointGCValue;
-    GC pointGC;
-    XColor xColor;
+    unsigned long lastPixel;
+    do
+    {
+        XNextEvent(RDCStreamingClient::defaultDisplay, &thrownEvent);
+    }
+    while (RDCStreamingClient::isRunning && thrownEvent.type != Expose);
+
     while (RDCStreamingClient::isRunning)
     {
-        XNextEvent(defaultDisplay, &thrownEvent);
-
-        switch (thrownEvent.type)
-        {
-            case Expose:
+        for (int colorArrayY = 0; colorArrayY < RDCStreamingClient::windowHeight; ++colorArrayY)
+            for (int colorArrayX = 0; colorArrayX < RDCStreamingClient::windowWidth; ++colorArrayX)
             {
-                for (int colorArrayY = 0; colorArrayY < RDCStreamingClient::windowHeight; ++colorArrayY)
-                    for (int colorArrayX = 0; colorArrayX < RDCStreamingClient::windowWidth; ++colorArrayX)
-                    {
-                        pointGCValue.function = GXcopy;
-                        pointGCValue.plane_mask = AllPlanes;
-                        pointGCValue.foreground = RDCStreamingClient::screenColors[colorArrayY][colorArrayX];
-                        pointGCValue.background = 0xFFFFFF;
+                if (RDCStreamingClient::screenColors[colorArrayY][colorArrayX] != lastPixel)
+                {
+                    lastPixel = RDCStreamingClient::screenColors[colorArrayY][colorArrayX];
+                    XSetForeground(RDCStreamingClient::defaultDisplay, pointGC, lastPixel);
+                }
 
-                        pointGC = XCreateGC(defaultDisplay, RDCStreamingClient::graphicsWindow, GCFunction|GCPlaneMask|GCForeground|GCBackground, &pointGCValue);
-
-                        XDrawPoint(defaultDisplay, RDCStreamingClient::graphicsWindow, pointGC, colorArrayX, colorArrayY);
-                    }
-
-                continue;
+                XFillRectangle(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow, pointGC, colorArrayX, colorArrayY, 1, 1);
             }
-        }
+
+        XFlush(RDCStreamingClient::defaultDisplay);
     }
 
     return nullptr;

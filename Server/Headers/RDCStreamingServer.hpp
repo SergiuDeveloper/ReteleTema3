@@ -32,6 +32,7 @@ class RDCStreamingServer
     private: static Display * serverDisplay;
     private: static unsigned long ** colorArray;
     private: static vector<string> colorArraySerialized;
+    private: static pthread_mutex_t colorArraySerializedMutex;
 
     private: static void * GatherDisplayInfoThreadFunc(void * threadArguments);
     private: static void * ReceiveConnectionsThreadFunc(void * threadArguments);
