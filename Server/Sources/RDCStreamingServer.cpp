@@ -202,14 +202,21 @@ void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
     }
 
     vector<string> colorArraySerializedCopy;
-    while (RDCStreamingServer::isRunning)
+    bool receivedConfirmation;
+    socklen_t clientSocketAddrLength = sizeof(clientSocketAddr);
+    bool clientConnected = true;
+    while (RDCStreamingServer::isRunning && clientConnected)
     {
         while (!pthread_mutex_trylock(&RDCStreamingServer::colorArraySerializedMutex));
         colorArraySerializedCopy = RDCStreamingServer::colorArraySerialized;
         pthread_mutex_unlock(&RDCStreamingServer::colorArraySerializedMutex);
         
         for (auto & serializedColorArrayEntry : colorArraySerializedCopy)
-            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), SOCKET_BUFFER_LENGTH, 0, (struct sockaddr *)&clientSocketAddr, sizeof(clientSocketAddr));
+        {
+            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), SOCKET_BUFFER_LENGTH, 0, (struct sockaddr *)&clientSocketAddr, clientSocketAddrLength);
+            
+            clientConnected = (recvfrom(RDCStreamingServer::serverSocket, &receivedConfirmation, sizeof(receivedConfirmation), 0, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength) != 0);
+        }
     }
 
     return nullptr;
