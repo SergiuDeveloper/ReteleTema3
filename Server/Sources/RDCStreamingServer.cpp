@@ -40,7 +40,10 @@ bool RDCStreamingServer::Start()
 
     operationResult = (bind(RDCStreamingServer::serverSocket, (struct sockaddr *)&serverSocketAddr, sizeof(serverSocketAddr)) != -1);
     if (!operationResult)
+    {
+        close(RDCStreamingServer::serverSocket);
         return false;
+    }
 
     socklen_t serverSocketAddrLength = sizeof(serverSocketAddr);
     getsockname(RDCStreamingServer::serverSocket, (struct sockaddr *)&serverSocketAddr, &serverSocketAddrLength);
@@ -167,9 +170,14 @@ void * RDCStreamingServer::ReceiveConnectionsThreadFunc(void * threadArguments)
         {
             clientIP = inet_ntoa(clientSocketAddr.sin_addr);
             
-            for (auto & whitelistedIP : RDCStreamingServer::whitelistedIPsVector)
-                if (whitelistedIP == clientIP)
+            for (size_t whitelistedIPsVectorIterator = 0; whitelistedIPsVectorIterator < RDCStreamingServer::whitelistedIPsVector.size(); ++whitelistedIPsVectorIterator)
+                if (RDCStreamingServer::whitelistedIPsVector[whitelistedIPsVectorIterator] == clientIP)
                 {
+                    while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
+                    RDCStreamingServer::whitelistedIPsVector[whitelistedIPsVectorIterator] = RDCStreamingServer::whitelistedIPsVector[RDCStreamingServer::whitelistedIPsVector.size() - 1];
+                    RDCStreamingServer::whitelistedIPsVector.pop_back();
+                    pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
+
                     pthread_t streamDisplayThread;
                     pthread_create(&streamDisplayThread, nullptr, RDCStreamingServer::StreamDisplayThreadFunc, &clientSocketAddr);
                     pthread_detach(streamDisplayThread);
