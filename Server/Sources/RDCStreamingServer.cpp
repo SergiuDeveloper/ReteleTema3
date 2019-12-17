@@ -127,9 +127,6 @@ void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
         delete RDCStreamingServer::colorArray[colorArrayY];
     delete RDCStreamingServer::colorArray;
 
-    delete defaultScreen;
-    delete displayImage;
-
     return nullptr;
 }
 
@@ -202,7 +199,6 @@ void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
     }
 
     vector<string> colorArraySerializedCopy;
-    bool receivedConfirmation;
     socklen_t clientSocketAddrLength = sizeof(clientSocketAddr);
     bool clientConnected = true;
     while (RDCStreamingServer::isRunning && clientConnected)
@@ -212,11 +208,7 @@ void * RDCStreamingServer::StreamDisplayThreadFunc(void * threadArguments)
         pthread_mutex_unlock(&RDCStreamingServer::colorArraySerializedMutex);
         
         for (auto & serializedColorArrayEntry : colorArraySerializedCopy)
-        {
-            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), SOCKET_BUFFER_LENGTH, 0, (struct sockaddr *)&clientSocketAddr, clientSocketAddrLength);
-            
-            clientConnected = (recvfrom(RDCStreamingServer::serverSocket, &receivedConfirmation, sizeof(receivedConfirmation), 0, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength) != 0);
-        }
+            sendto(RDCStreamingServer::serverSocket, serializedColorArrayEntry.c_str(), SOCKET_BUFFER_LENGTH, MSG_DONTWAIT, (struct sockaddr *)&clientSocketAddr, clientSocketAddrLength);
     }
 
     return nullptr;

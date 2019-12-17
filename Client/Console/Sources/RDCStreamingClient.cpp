@@ -110,11 +110,10 @@ void * RDCStreamingClient::GetGraphicsInformationThreadFunc(void * threadArgumen
     char receivedBufferCString[SOCKET_BUFFER_LENGTH];
     int xCoord, yCoord;
     unsigned long receivedPixel;
-    bool receivedConfirmation = true;
     while (RDCStreamingClient::isRunning)
         if (RDCStreamingClient::screenColors != nullptr)
         {
-            receivedBytes = (recvfrom(RDCStreamingClient::serverSocket, receivedBufferCString, SOCKET_BUFFER_LENGTH, 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength));
+            receivedBytes = (recvfrom(RDCStreamingClient::serverSocket, receivedBufferCString, SOCKET_BUFFER_LENGTH, MSG_DONTWAIT, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, &serverSocketAddrLength));
             
             serverRunning = (receivedBytes != 0);
             if (!serverRunning)
@@ -131,8 +130,6 @@ void * RDCStreamingClient::GetGraphicsInformationThreadFunc(void * threadArgumen
             receivedBufferStream = istringstream(receivedBuffer);
             while (receivedBufferStream>>yCoord>>xCoord>>receivedPixel)
                 RDCStreamingClient::screenColors[yCoord][xCoord] = receivedPixel;
-
-            sendto(RDCStreamingClient::serverSocket, &receivedConfirmation, sizeof(receivedConfirmation), 0, (struct sockaddr *)&RDCStreamingClient::serverSocketAddr, serverSocketAddrLength);
         }
 
     return nullptr;
