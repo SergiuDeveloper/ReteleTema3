@@ -7,6 +7,8 @@ vector<int> RDCExecutionServer::clientSockets;
 pthread_mutex_t RDCExecutionServer::clientSocketsMutex;
 vector<string> RDCExecutionServer::whitelistedIPs;
 pthread_mutex_t RDCExecutionServer::whitelistedIPsMutex;
+char RDCExecutionServer::keyboardState[KEYBOARD_STATE_COUNT];
+pthread_mutex_t RDCExecutionServer::keyboardStateMutex;
 
 bool RDCExecutionServer::IsGraphicsCompatible()
 {
@@ -26,6 +28,8 @@ bool RDCExecutionServer::Start()
 
     pthread_mutex_init(&RDCExecutionServer::whitelistedIPsMutex, nullptr);
     pthread_mutex_init(&RDCExecutionServer::clientSocketsMutex, nullptr);
+    pthread_mutex_init(&RDCExecutionServer::keyboardStateMutex, nullptr);
+
     RDCExecutionServer::whitelistedIPs.clear();
     RDCExecutionServer::clientSockets.clear();
 
@@ -55,14 +59,20 @@ bool RDCExecutionServer::Start()
     int serverSocketFlags = fcntl(RDCExecutionServer::serverSocket, F_GETFL, 0) | O_NONBLOCK;
     fcntl(RDCExecutionServer::serverSocket, F_SETFL, serverSocketFlags);
 
+    RDCExecutionServer::isRunning = true;
+
+    pthread_t keyboardStateThread;
+    pthread_create(&keyboardStateThread, nullptr, RDCExecutionServer::KeyboardStateThreadFunc, nullptr);
+    pthread_detach(keyboardStateThread);
+
     pthread_t clientAcceptanceThread;
     pthread_create(&clientAcceptanceThread, nullptr, RDCExecutionServer::ClientAcceptanceThreadFunc, nullptr);
     pthread_detach(clientAcceptanceThread);
 
-    RDCExecutionServer::isRunning = true;
-
     socklen_t serverSocketAddrLength = sizeof(serverSocketAddr);
     getsockname(RDCExecutionServer::serverSocket, (struct sockaddr *)&serverSocketAddr, &serverSocketAddrLength);
+
+    RDCExecutionServer::serverPort = ntohs(serverSocketAddr.sin_port);
 
     return true;
 }
@@ -79,6 +89,7 @@ bool RDCExecutionServer::Stop()
         close(clientSocket);
     pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
 
+    pthread_mutex_destroy(&RDCExecutionServer::keyboardStateMutex);
     pthread_mutex_destroy(&RDCExecutionServer::whitelistedIPsMutex);
     pthread_mutex_destroy(&RDCExecutionServer::clientSocketsMutex);
 
@@ -149,9 +160,70 @@ void * RDCExecutionServer::ClientAcceptanceThreadFunc(void * threadArguments)
                 RDCExecutionServer::clientSockets.push_back(clientSocket);
                 pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
 
+                pthread_t clientExecutionThread;
+                pthread_create(&clientExecutionThread, nullptr, RDCExecutionServer::ClientExecutionThreadFunc, &clientSocket);
+                pthread_detach(clientExecutionThread);
+
                 continue;
             }
     }
+
+    return nullptr;
+}
+
+void * RDCExecutionServer::ClientExecutionThreadFunc(void * threadArguments)
+{
+    int clientSocket = * (int *)threadArguments;
+
+    bool clientConnected = true;
+    size_t keyboardStateLength = KEYBOARD_STATE_COUNT;
+    bool clientResponse;
+
+    write(RDCExecutionServer::serverSocket, &keyboardStateLength, sizeof(size_t));
+    
+    while (RDCExecutionServer::isRunning && clientConnected)
+    {
+        while (!pthread_mutex_trylock(&RDCExecutionServer::keyboardStateMutex));
+        write(clientSocket, RDCExecutionServer::keyboardState, keyboardStateLength);
+        pthread_mutex_unlock(&RDCExecutionServer::keyboardStateMutex);
+
+        clientConnected = (read(clientSocket, &clientResponse, sizeof(clientResponse)) != 0);
+    }
+
+    close(clientSocket);
+
+    while (!pthread_mutex_trylock(&RDCExecutionServer::clientSocketsMutex));
+    for (size_t clientSocketsIterator = 0; clientSocketsIterator < RDCExecutionServer::clientSockets.size(); ++clientSocketsIterator)
+        if (RDCExecutionServer::clientSockets[clientSocketsIterator] == clientSocket)
+        {
+            RDCExecutionServer::clientSockets[clientSocketsIterator] = RDCExecutionServer::clientSockets[RDCExecutionServer::clientSockets.size() - 1];
+            RDCExecutionServer::clientSockets.pop_back();
+
+            pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
+            return nullptr;
+        }
+
+    pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
+    return nullptr;
+}
+
+void * RDCExecutionServer::KeyboardStateThreadFunc(void * threadArguments)
+{
+    Display * defaultDisplay = XOpenDisplay(nullptr);
+    if (defaultDisplay == nullptr)
+        return nullptr;
+
+    char keyboardStateCopy[KEYBOARD_STATE_COUNT];
+    while (RDCExecutionServer::isRunning)
+        if (RDCExecutionServer::clientSockets.size() > 0)
+        {
+            XQueryKeymap(defaultDisplay, keyboardStateCopy);
+
+            while (!pthread_mutex_trylock(&RDCExecutionServer::keyboardStateMutex));
+            for (size_t keyboardStateCopyIterator = 0; keyboardStateCopyIterator < KEYBOARD_STATE_COUNT; ++keyboardStateCopyIterator)
+                RDCExecutionServer::keyboardState[keyboardStateCopyIterator] = keyboardStateCopy[keyboardStateCopyIterator];
+            pthread_mutex_unlock(&RDCExecutionServer::keyboardStateMutex);
+        }
 
     return nullptr;
 }

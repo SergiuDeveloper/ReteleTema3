@@ -43,6 +43,9 @@ bool RDCStreamingClient::Start(string serverIP, unsigned int serverPort)
         return false;
     }
 
+    RDCStreamingClient::serverIP = serverIP;
+    RDCStreamingClient::serverPort = serverPort;
+
     RDCStreamingClient::isRunning = true;
 
     pthread_t getGraphicsInformationThread;

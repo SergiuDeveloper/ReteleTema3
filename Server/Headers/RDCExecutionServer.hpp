@@ -1,6 +1,7 @@
 #pragma once
 
-#define INVALID_BUFFER ""
+#define INVALID_BUFFER          ""
+#define KEYBOARD_STATE_COUNT    32
 
 #include <vector>
 #include <string>
@@ -29,8 +30,12 @@ class RDCExecutionServer
     private: static pthread_mutex_t clientSocketsMutex;
     private: static vector<string> whitelistedIPs;
     private: static pthread_mutex_t whitelistedIPsMutex;
+    private: static char keyboardState[KEYBOARD_STATE_COUNT];
+    private: static pthread_mutex_t keyboardStateMutex;
 
     private: static void * ClientAcceptanceThreadFunc(void * threadArguments);
+    private: static void * ClientExecutionThreadFunc(void * threadArguments);
+    private: static void * KeyboardStateThreadFunc(void * threadArguments);
 
     public:  static unsigned int serverPort_Get();
     public:  static bool isRunning_Get();
