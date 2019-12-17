@@ -39,4 +39,5 @@ class RDCStreamingClient
     public:  static string serverIP_Get();
     public:  static unsigned int serverPort_Get();
     public:  static bool isRunning_Get();
+    public:  static Window graphicsWindow_Get();
 };

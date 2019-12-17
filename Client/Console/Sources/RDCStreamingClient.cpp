@@ -200,3 +200,8 @@ bool RDCStreamingClient::isRunning_Get()
 {
     return RDCStreamingClient::isRunning;
 }
+
+Window RDCStreamingClient::graphicsWindow_Get()
+{
+    return RDCStreamingClient::graphicsWindow;
+}
