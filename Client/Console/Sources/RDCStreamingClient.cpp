@@ -152,6 +152,11 @@ void * RDCStreamingClient::GraphicsHandlingThreadFunc(void * threadArguments)
     }
     while (RDCStreamingClient::isRunning && thrownEvent.type != Expose);
 
+    unsigned long ** pixelsCopy = new unsigned long *[RDCStreamingClient::windowHeight];
+    for (int colorArrayY = 0; colorArrayY < RDCStreamingClient::windowHeight; ++colorArrayY)
+        pixelsCopy[colorArrayY] = new unsigned long[RDCStreamingClient::windowWidth];
+
+    bool initialIteration = true;
     while (RDCStreamingClient::isRunning)
     {
         for (int colorArrayY = 0; colorArrayY < RDCStreamingClient::windowHeight; ++colorArrayY)
@@ -162,11 +167,17 @@ void * RDCStreamingClient::GraphicsHandlingThreadFunc(void * threadArguments)
                     lastPixel = RDCStreamingClient::screenColors[colorArrayY][colorArrayX];
                     XSetForeground(RDCStreamingClient::defaultDisplay, pointGC, lastPixel);
                 }
-
-                XDrawPoint(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow, pointGC, colorArrayX, colorArrayY);
+                
+                if (initialIteration || RDCStreamingClient::screenColors[colorArrayY][colorArrayX] != pixelsCopy[colorArrayY][colorArrayX])
+                {
+                    XDrawPoint(RDCStreamingClient::defaultDisplay, RDCStreamingClient::graphicsWindow, pointGC, colorArrayX, colorArrayY);
+                    pixelsCopy[colorArrayY][colorArrayX] = RDCStreamingClient::screenColors[colorArrayY][colorArrayX];
+                }
             }
 
         XFlush(RDCStreamingClient::defaultDisplay);
+
+        initialIteration = false;
     }
 
     return nullptr;
