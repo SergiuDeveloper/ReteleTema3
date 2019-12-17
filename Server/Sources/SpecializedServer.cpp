@@ -46,6 +46,12 @@ SuccessState SpecializedServer::Start(unsigned int serverPort)
         while (!pthread_mutex_trylock(&this->consoleMutex));
         cout<<(rdcStreamingServerStarted ? SUCCESS_RDC_STREAMING_SERVER_STARTED : FAILURE_RDC_STREAMING_SERVER_STARTED)<<endl;
         pthread_mutex_unlock(&this->consoleMutex);
+
+        bool rdcExecutionServerStarted = RDCExecutionServer::Start();
+
+        while (!pthread_mutex_trylock(&this->consoleMutex));
+        cout<<(rdcExecutionServerStarted ? SUCCESS_RDC_EXECUTION_SERVER_STARTED : FAILURE_RDC_EXECUTION_SERVER_STARTED)<<endl;
+        pthread_mutex_unlock(&this->consoleMutex);
     }
     
     return successState;
@@ -58,10 +64,22 @@ SuccessState SpecializedServer::Stop()
     pthread_mutex_destroy(&this->consoleMutex);
     pthread_mutex_destroy(&SpecializedServer::singletonInstanceMutex);
 
-    if (RDCStreamingServer::IsGraphicsCompatible() && RDCStreamingServer::isRunning_Get())
-    {
-        bool rdcStreamingServerStopped = RDCStreamingServer::Stop();
-        cout<<(rdcStreamingServerStopped ? SUCCESS_RDC_STREAMING_SERVER_STOPPED : FAILURE_RDC_STREAMING_SERVER_STOPPED)<<endl;
+    if (RDCStreamingServer::IsGraphicsCompatible())
+    {   
+        if (RDCStreamingServer::isRunning_Get())
+        {
+            bool rdcStreamingServerStopped = RDCStreamingServer::Stop();
+            while (!pthread_mutex_trylock(&this->consoleMutex));
+            cout<<(rdcStreamingServerStopped ? SUCCESS_RDC_STREAMING_SERVER_STOPPED : FAILURE_RDC_STREAMING_SERVER_STOPPED)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+        }
+        if (RDCExecutionServer::isRunning_Get())
+        {
+            bool rdcStreamingServerStopped = RDCExecutionServer::Stop();
+            while (!pthread_mutex_trylock(&this->consoleMutex));
+            cout<<(rdcStreamingServerStopped ? SUCCESS_RDC_EXECUTION_SERVER_STOPPED : FAILURE_RDC_EXECUTION_SERVER_STOPPED)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+        }
     }
     
     return Server::Stop();
@@ -529,8 +547,16 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 
         if (requestUpper == messageConnectRDC)
         {
-            bool addedWhitelistedClientToRDCStreaming = RDCStreamingServer::AddWhitelistedClient(clientSocket.clientSocketAddr);
+            bool addedWhitelistedClientToRDCStreaming = RDCStreamingServer::AddWhitelistedClient(clientSocket.clientIP);
+            while (!pthread_mutex_trylock(&this->consoleMutex));
             cout<<(addedWhitelistedClientToRDCStreaming ? SUCCESS_ADDED_CLIENT_TO_RDC_STREAMING : FAILURE_ADDED_CLIENT_TO_RDC_STREAMING)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+
+            if (!addedWhitelistedClientToRDCStreaming)
+            {
+                RDCStreamingServer::RemoveWhitelistedIP(clientSocket.clientIP);
+                return;
+            }
 
             unsigned int rdcStreamingServerPort = RDCStreamingServer::serverPort_Get();
             string rdcStreamingServerPortString = to_string(rdcStreamingServerPort);
@@ -539,6 +565,25 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 
             write(clientSocket.clientSocketDescriptor, &rdcStreamingServerPortStringEncrypted.charArrayLength, sizeof(size_t));
             write(clientSocket.clientSocketDescriptor, rdcStreamingServerPortStringEncrypted.charArray, rdcStreamingServerPortStringEncrypted.charArrayLength);
+
+            bool addedWhitelistedClientToRDCExecution = RDCExecutionServer::AddWhitelistedIP(clientSocket.clientIP);
+            while (!pthread_mutex_trylock(&this->consoleMutex));
+            cout<<(addedWhitelistedClientToRDCExecution ? SUCCESS_ADDED_CLIENT_TO_RDC_EXECUTION : FAILURE_ADDED_CLIENT_TO_RDC_EXECUTION)<<endl;
+            pthread_mutex_unlock(&this->consoleMutex);
+
+            if (!addedWhitelistedClientToRDCExecution)
+            {
+                RDCExecutionServer::RemoveWhitelistedIP(clientSocket.clientIP);
+                return;
+            }
+
+            unsigned int rdcExecutionServerPort = RDCExecutionServer::serverPort_Get();
+            string rdcExecutionServerPortString = to_string(rdcExecutionServerPort);
+            Encryption::Types::CharArray rdcExecutionServerPortStringEncrypted = Encryption::Algorithms::Vigenere::Encrypt(rdcExecutionServerPortString, VIGENERE_KEY(this->serverPort_Get(), clientSocket.clientMAC),
+                VIGENERE_RANDOM_PREFIX_LENGTH, VIGENERE_RANDOM_SUFFIX_LENGTH);
+
+            write(clientSocket.clientSocketDescriptor, &rdcExecutionServerPortStringEncrypted.charArrayLength, sizeof(size_t));
+            write(clientSocket.clientSocketDescriptor, rdcExecutionServerPortStringEncrypted.charArray, rdcExecutionServerPortStringEncrypted.charArrayLength);
 
             return;
         }            

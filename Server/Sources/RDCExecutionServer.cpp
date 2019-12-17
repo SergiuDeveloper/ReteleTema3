@@ -35,6 +35,7 @@ bool RDCExecutionServer::Start()
 
     struct sockaddr_in serverSocketAddr;
     serverSocketAddr.sin_family = AF_INET;
+    serverSocketAddr.sin_addr.s_addr = INADDR_ANY;
     serverSocketAddr.sin_port = htons(0);
 
     operationSuccess = (bind(RDCExecutionServer::serverSocket, (struct sockaddr *)&serverSocketAddr, sizeof(serverSocketAddr)) != -1);
@@ -60,6 +61,9 @@ bool RDCExecutionServer::Start()
 
     RDCExecutionServer::isRunning = true;
 
+    socklen_t serverSocketAddrLength = sizeof(serverSocketAddr);
+    getsockname(RDCExecutionServer::serverSocket, (struct sockaddr *)&serverSocketAddr, &serverSocketAddrLength);
+
     return true;
 }
 
@@ -83,11 +87,36 @@ bool RDCExecutionServer::Stop()
     return true;
 }
 
-void RDCExecutionServer::AddWhitelistedIP(string whitelistedIP)
+bool RDCExecutionServer::AddWhitelistedIP(string whitelistedIP)
 {
+    if (!RDCExecutionServer::isRunning)
+        return false;
+
     while (!pthread_mutex_trylock(&RDCExecutionServer::whitelistedIPsMutex));
     RDCExecutionServer::whitelistedIPs.push_back(whitelistedIP);
     pthread_mutex_unlock(&RDCExecutionServer::whitelistedIPsMutex);
+
+    return true;
+}
+
+bool RDCExecutionServer::RemoveWhitelistedIP(string whitelistedIP)
+{
+    if (!RDCExecutionServer::isRunning)
+        return false;
+
+    while (!pthread_mutex_trylock(&RDCExecutionServer::whitelistedIPsMutex));
+    for (size_t whitelistedIPsIterator = 0; whitelistedIPsIterator < RDCExecutionServer::whitelistedIPs.size(); ++whitelistedIPsIterator)
+        if (RDCExecutionServer::whitelistedIPs[whitelistedIPsIterator] == whitelistedIP)
+        {
+            RDCExecutionServer::whitelistedIPs[whitelistedIPsIterator] = RDCExecutionServer::whitelistedIPs[RDCExecutionServer::whitelistedIPs.size() - 1];
+            RDCExecutionServer::whitelistedIPs.pop_back();
+
+            pthread_mutex_unlock(&RDCExecutionServer::whitelistedIPsMutex);
+            return true;
+        }
+    pthread_mutex_unlock(&RDCExecutionServer::whitelistedIPsMutex);
+
+    return false;
 }
 
 void * RDCExecutionServer::ClientAcceptanceThreadFunc(void * threadArguments)

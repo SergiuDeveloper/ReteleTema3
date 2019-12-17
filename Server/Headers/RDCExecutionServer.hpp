@@ -19,7 +19,8 @@ class RDCExecutionServer
 
     public:  static bool Start();
     public:  static bool Stop();
-    public:  static void AddWhitelistedIP(string whitelistedIP);
+    public:  static bool AddWhitelistedIP(string whitelistedIP);
+    public:  static bool RemoveWhitelistedIP(string whitelistedIP);
 
     private: static int serverSocket;
     private: static unsigned int serverPort;

@@ -20,7 +20,8 @@ class RDCStreamingServer
     public:  static bool Start();
     public:  static bool Stop();
 
-    public:  static bool AddWhitelistedClient(struct sockaddr_in clientSocketAddr);
+    public:  static bool AddWhitelistedClient(string whitelistedIP);
+    public:  static bool RemoveWhitelistedIP(string whitelistedIP);
 
     private: static void SerializeColorArray(int screenHeight, int screenWidth);
 

@@ -1,15 +1,21 @@
 #pragma once
 
 #define SUCCESS_RDC_STREAMING_SERVER_STARTED                                            "Successfully started the RDC Streaming Server"
+#define SUCCESS_RDC_EXECUTION_SERVER_STARTED                                            "Successfully started the RDC Execution Server"
 #define SUCCESS_RDC_STREAMING_SERVER_STOPPED                                            "Successfully stopped the RDC Streaming Server"
+#define SUCCESS_RDC_EXECUTION_SERVER_STOPPED                                            "Successfully stopped the RDC Execution Server"
 #define SUCCESS_ADDED_CLIENT_TO_RDC_STREAMING                                           "Successfully added client to the RDC Streaming Server"
+#define SUCCESS_ADDED_CLIENT_TO_RDC_EXECUTION                                           "Successfully added client to the RDC Execution Server"
 #define SUCCESS_CLIENT_CONNECTED(clientIP, clientMAC)                                   ((string)"Client " + clientIP + " : " + clientMAC + " successfully connected")
 #define SUCCESS_CLIENT_DISCONNECTED(clientIP, clientMAC)                                ((string)"Client " + clientIP + " : " + clientMAC + " successfully disconnected")
 #define SUCCESS_RECEIVED_REQUEST(clientIP, clientMAC, requestString)                    ((string)"Received request from " + clientIP + " : " + clientMAC + " : \"" + requestString + "\"")
 #define SUCCESS_EXECUTED_COMMAND(clientIP, clientMAC)                                   ((string)"Successfully executed request received from " + clientIP + " : " + clientMAC)
 #define FAILURE_RDC_STREAMING_SERVER_STARTED                                            "Failed to start the RDC Streaming Server"
+#define FAILURE_RDC_EXECUTION_SERVER_STARTED                                            "Failed to start the RDC Execution Server"
 #define FAILURE_RDC_STREAMING_SERVER_STOPPED                                            "Failed to stop the RDC Streaming Server"
+#define FAILURE_RDC_EXECUTION_SERVER_STOPPED                                            "Failed to stop the RDC Execution Server"
 #define FAILURE_ADDED_CLIENT_TO_RDC_STREAMING                                           "Failed to add client to the RDC Streaming Server"
+#define FAILURE_ADDED_CLIENT_TO_RDC_EXECUTION                                           "Failed to add client to the RDC Execution Server"
 #define ERROR_CLIENT_ALREADY_CONNECTED(clientIP, clientMAC)                             ((string)"Client " + clientIP + " : " + clientMAC + " is already connected")
 #define ERROR_CLIENT_NOT_WHITELISTED(clientIP)                                          ((string)"Could not connect client " + clientIP + " to the server, as he is not whitelisted")
 #define ERROR_EXECUTE_COMMAND(clientIP, clientMAC)                                      ((string)"Failed to execute command received from " + clientIP + clientMAC)
@@ -39,6 +45,7 @@
 #include "Encryption.hpp"
 #include "LocalServer.hpp"
 #include "RDCStreamingServer.hpp"
+#include "RDCExecutionServer.hpp"
 #include "MySQLConnector.hpp"
 #include "ClientSocket.hpp"
 #include "SuccessState.hpp"

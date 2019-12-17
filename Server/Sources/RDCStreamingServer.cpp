@@ -83,16 +83,36 @@ bool RDCStreamingServer::Stop()
     return true;
 }
 
-bool RDCStreamingServer::AddWhitelistedClient(struct sockaddr_in clientSocketAddr)
+bool RDCStreamingServer::AddWhitelistedClient(string whitelistedIP)
 {
     if (!RDCStreamingServer::isRunning)
         return false;
 
     while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
-    RDCStreamingServer::whitelistedIPsVector.push_back(inet_ntoa(clientSocketAddr.sin_addr));
+    RDCStreamingServer::whitelistedIPsVector.push_back(whitelistedIP);
     pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
     
     return true;
+}
+
+bool RDCStreamingServer::RemoveWhitelistedIP(string whitelistedIP)
+{
+    if (!RDCStreamingServer::isRunning)
+        return false;
+
+    while (!pthread_mutex_trylock(&RDCStreamingServer::whitelistedIPsVectorMutex));
+    for (size_t whitelistedIPsIterator = 0; whitelistedIPsIterator < RDCStreamingServer::whitelistedIPsVector.size(); ++whitelistedIPsIterator)
+        if (RDCStreamingServer::whitelistedIPsVector[whitelistedIPsIterator] == whitelistedIP)
+        {
+            RDCStreamingServer::whitelistedIPsVector[whitelistedIPsIterator] = RDCStreamingServer::whitelistedIPsVector[RDCStreamingServer::whitelistedIPsVector.size() - 1];
+            RDCStreamingServer::whitelistedIPsVector.pop_back();
+
+            pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
+            return true;
+        }
+    pthread_mutex_unlock(&RDCStreamingServer::whitelistedIPsVectorMutex);
+
+    return false;
 }
 
 void * RDCStreamingServer::GatherDisplayInfoThreadFunc(void * threadArguments)
