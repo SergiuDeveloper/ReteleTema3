@@ -38,13 +38,13 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <string.h>
-#include <term.h>
 #include <iostream>
 #include <string>
 #include "RDCStreamingClient.hpp"
 #include "RDCExecutionClient.hpp"
 #include "Encryption.hpp"
 #include "SuccessState.hpp"
+#include <term.h>
 
 using namespace std;
 
