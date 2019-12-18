@@ -553,10 +553,7 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
             pthread_mutex_unlock(&this->consoleMutex);
 
             if (!addedWhitelistedClientToRDCStreaming)
-            {
-                RDCStreamingServer::RemoveWhitelistedIP(clientSocket.clientIP);
                 return;
-            }
 
             unsigned int rdcStreamingServerPort = RDCStreamingServer::serverPort_Get();
             string rdcStreamingServerPortString = to_string(rdcStreamingServerPort);
@@ -573,7 +570,7 @@ void SpecializedServer::ClientRequest_EventCallback(ClientSocket clientSocket, E
 
             if (!addedWhitelistedClientToRDCExecution)
             {
-                RDCExecutionServer::RemoveWhitelistedIP(clientSocket.clientIP);
+                RDCStreamingServer::RemoveWhitelistedIP(clientSocket.clientIP);
                 return;
             }
 

@@ -119,7 +119,7 @@ void * Server::ClientsAcceptanceThreadFunction(void * threadParameters)
     bool operationSuccess;
     while (this->serverRunning)
     {
-        clientSocketAddrLen = sizeof(sockaddr_in);
+        clientSocketAddrLen = sizeof(struct sockaddr_in);
         operationSuccess = false;
 
         while (this->serverRunning && !operationSuccess)

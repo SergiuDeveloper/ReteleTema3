@@ -138,35 +138,46 @@ void * RDCExecutionServer::ClientAcceptanceThreadFunc(void * threadArguments)
     int clientSocket;
     bool operationSuccess;
     string clientIP;
+    bool foundClient;
+    int * clientSocketRef = new int;
     while (RDCExecutionServer::isRunning)
     {
+        clientSocketAddrLength = sizeof(struct sockaddr_in);
+
         clientSocket = (accept(RDCExecutionServer::serverSocket, (struct sockaddr *)&clientSocketAddr, &clientSocketAddrLength));
 
-        operationSuccess = (clientSocket > 0);
-        if (!operationSuccess)
+        if (clientSocket <= 0)
             continue;
 
         clientIP = inet_ntoa(clientSocketAddr.sin_addr);
 
-        for (size_t whitelistedIPsIterator = 0; whitelistedIPsIterator < RDCExecutionServer::whitelistedIPs.size(); ++whitelistedIPsIterator)
+        foundClient = false;
+        while (!pthread_mutex_trylock(&RDCExecutionServer::whitelistedIPsMutex));
+        for (size_t whitelistedIPsIterator = 0; whitelistedIPsIterator < RDCExecutionServer::whitelistedIPs.size() && !foundClient; ++whitelistedIPsIterator)
             if (RDCExecutionServer::whitelistedIPs[whitelistedIPsIterator] == clientIP)
             {
-                while (!pthread_mutex_trylock(&RDCExecutionServer::whitelistedIPsMutex));
                 RDCExecutionServer::whitelistedIPs[whitelistedIPsIterator] = RDCExecutionServer::whitelistedIPs[RDCExecutionServer::whitelistedIPs.size() - 1];
                 RDCExecutionServer::whitelistedIPs.pop_back();
+
                 pthread_mutex_unlock(&RDCExecutionServer::whitelistedIPsMutex);
 
                 while (!pthread_mutex_trylock(&RDCExecutionServer::clientSocketsMutex));
                 RDCExecutionServer::clientSockets.push_back(clientSocket);
                 pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
 
+                * clientSocketRef = clientSocket; 
+                
                 pthread_t clientExecutionThread;
-                pthread_create(&clientExecutionThread, nullptr, RDCExecutionServer::ClientExecutionThreadFunc, &clientSocket);
+                pthread_create(&clientExecutionThread, nullptr, RDCExecutionServer::ClientExecutionThreadFunc, clientSocketRef);
                 pthread_detach(clientExecutionThread);
 
-                continue;
+                foundClient = true;
             }
+        if (!foundClient)
+            pthread_mutex_unlock(&RDCExecutionServer::whitelistedIPsMutex);
     }
+
+    delete clientSocketRef;
 
     return nullptr;
 }
@@ -174,7 +185,7 @@ void * RDCExecutionServer::ClientAcceptanceThreadFunc(void * threadArguments)
 void * RDCExecutionServer::ClientExecutionThreadFunc(void * threadArguments)
 {
     int clientSocket = * (int *)threadArguments;
-
+    
     bool clientConnected = true;
     size_t keyboardStateLength = KEYBOARD_STATE_COUNT;
     bool clientResponse;
@@ -214,16 +225,23 @@ void * RDCExecutionServer::KeyboardStateThreadFunc(void * threadArguments)
         return nullptr;
 
     char keyboardStateCopy[KEYBOARD_STATE_COUNT];
+    size_t clientSocketsLength;
     while (RDCExecutionServer::isRunning)
-        if (RDCExecutionServer::clientSockets.size() > 0)
+    {
+        while (!pthread_mutex_trylock(&RDCExecutionServer::clientSocketsMutex));
+        clientSocketsLength = RDCExecutionServer::clientSockets.size();
+        pthread_mutex_unlock(&RDCExecutionServer::clientSocketsMutex);
+        if (clientSocketsLength > 0)
         {
             XQueryKeymap(defaultDisplay, keyboardStateCopy);
 
             while (!pthread_mutex_trylock(&RDCExecutionServer::keyboardStateMutex));
             for (size_t keyboardStateCopyIterator = 0; keyboardStateCopyIterator < KEYBOARD_STATE_COUNT; ++keyboardStateCopyIterator)
                 RDCExecutionServer::keyboardState[keyboardStateCopyIterator] = keyboardStateCopy[keyboardStateCopyIterator];
+
             pthread_mutex_unlock(&RDCExecutionServer::keyboardStateMutex);
         }
+    }
 
     return nullptr;
 }
